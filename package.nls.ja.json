@@ -12,12 +12,12 @@
   "cmd.toggleViewed": "表示中のファイルの確認済みを切り替え",
   "cmd.installClaudeHook": "Claude Code のターン追跡を有効化…",
   "cmd.uninstallClaudeHook": "Claude Code のターン追跡を無効化",
+  "cmd.compareClipboard": "クリップボードと比較",
   "cmd.openFile": "開く",
   "cmd.openCommit": "コミットを開く",
   "cmd.viewAsTree": "ツリーで表示",
   "cmd.viewAsList": "一覧で表示",
   "cmd.scrollToSection": "見出しへ移動",
-  "cmd.compareClipboard": "クリップボードと比較",
   "container": "Markdown Diff",
   "view.changes": "変更ファイル",
   "view.outline": "変更のある見出し",
@@ -32,6 +32,12 @@
   "cfg.b.index": "ステージされていない変更のみ",
   "cfg.mrBaseBranch": "「PR/MR と同じ」基準で使う PR/MR のターゲット ブランチ。空欄の場合は自動検出します (origin/HEAD、次に main、master、develop)。",
   "cfg.renderHtml": "Markdown 内の生 HTML (HTML の表など) を描画します。制限モードでは常にオフです。",
+  "cfg.mrBaseBranch.invalid": "有効なブランチ名ではありません。",
   "cfg.allowRemoteImages": "Review タブで http(s) URL の画像を読み込みます。既定ではオフで、ドキュメントを開いても外部サーバーへ接続しません。",
-  "cfg.mrBaseBranch.invalid": "有効なブランチ名ではありません。"
+  "cfg.ai.channel": "変更に対する「AI に質問」アクションがプロンプトを渡す方法。",
+  "cfg.ai.ch.clipboard": "任意のアシスタント (ChatGPT、Claude、Gemini…) に貼り付けられるよう、プロンプトをクリップボードにコピーします。",
+  "cfg.ai.ch.terminal": "ターミナルを開き、mdReview.ai.command の CLI をプロンプト付きで実行します。",
+  "cfg.ai.ch.chat": "VS Code のアクティブなチャット ビュー (例: Copilot Chat) にプロンプトを送信します。",
+  "cfg.ai.command": "「AI に質問」の「terminal」送信で起動する CLI。プロンプトを最初のメッセージとして渡します (例: claude、gemini、codex、aider)。",
+  "cfg.ai.command.invalid": "使用できるのは英数字、スペース、および _ . / @ : + ~ ^ - のみです。"
 }

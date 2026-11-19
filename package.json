@@ -289,6 +289,28 @@
           "default": false,
           "description": "%cfg.allowRemoteImages%",
           "scope": "application"
+        },
+        "mdReview.ai.channel": {
+          "type": "string",
+          "enum": [
+            "clipboard",
+            "terminal",
+            "chat"
+          ],
+          "default": "clipboard",
+          "description": "%cfg.ai.channel%",
+          "enumDescriptions": [
+            "%cfg.ai.ch.clipboard%",
+            "%cfg.ai.ch.terminal%",
+            "%cfg.ai.ch.chat%"
+          ]
+        },
+        "mdReview.ai.command": {
+          "type": "string",
+          "default": "claude",
+          "description": "%cfg.ai.command%",
+          "pattern": "^[A-Za-z0-9 _./@:+~^-]{0,200}$",
+          "patternErrorMessage": "%cfg.ai.command.invalid%"
         }
       }
     },

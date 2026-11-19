@@ -90,7 +90,8 @@ section.k-moveSrc .note { color: var(--del-fg); }
 .gutter { position: absolute; left: -30px; top: 2px; display: none; flex-direction: column; gap: 2px; }
 section.seg:hover .gutter, section.focus .gutter { display: flex; }
 section.seen .gutter { display: flex; }
-section.seen:not(:hover):not(.focus) .gutter .g-src { display: none; }
+section.seen:not(:hover):not(.focus) .gutter .g-src,
+section.seen:not(:hover):not(.focus) .gutter .g-ai { display: none; }
 section.focus .gutter button { border-color: var(--focus); }
 .gutter button { padding: 0 4px; font-size: 11px; line-height: 16px; }
 section.seen .g-seen { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }

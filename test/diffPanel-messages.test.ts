@@ -71,6 +71,16 @@ describe('DiffPanel.onMessage (untrusted webview input)', () => {
     expect(spy).toHaveBeenCalled();
   });
 
+  describe('askAi', () => {
+    it('opens the action picker only for a real change at a valid index', async () => {
+      const pick = vi.spyOn(window, 'showQuickPick');
+      for (const bad of [-1, 1.5, 'x', NaN, 2e9, 99]) await fire({ type: 'askAi', i: bad });
+      expect(pick).not.toHaveBeenCalled();
+      await fire({ type: 'askAi', i: 0 }); // '# a' -> '# b' is a modified heading
+      expect(pick).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('filters invalid outline items', () => {
     fire({ type: 'outline', items: [{ i: 0, level: 1, n: 2, text: 'ok' }, { bad: true }, null, 5] });
     expect(host.onOutline).toHaveBeenCalledWith([{ i: 0, level: 1, n: 2, text: 'ok' }]);

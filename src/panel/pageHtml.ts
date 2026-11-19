@@ -29,6 +29,7 @@ export function pageBody(t: WebviewStrings): string {
   <table>
     ${row(`${k('n')} / ${k('p')}`, t.keyNextPrev)}
     ${row(k('x'), t.keySeen)}
+    ${row(k('a'), t.keyAskAi)}
     ${row(k('s'), t.keySplit)}
     ${row(k('c'), t.keyCollapse)}
     ${row(k('v'), t.keyViewed)}

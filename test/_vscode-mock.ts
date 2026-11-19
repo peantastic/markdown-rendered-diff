@@ -9,6 +9,7 @@ export const l10n = { t: (m: string, ...a: unknown[]) => m.replace(/\{(\d+)\}/g,
 export const env = {
   language: 'en',
   openExternal: (_u: unknown): Promise<boolean> => Promise.resolve(true),
+  clipboard: { writeText: (_t: string): Promise<void> => Promise.resolve() },
 };
 export const commands = {
   executeCommand: (..._a: unknown[]): Promise<unknown> => Promise.resolve(undefined),
@@ -35,6 +36,9 @@ export const window = {
   showWarningMessage: (..._a: unknown[]): Promise<unknown> => Promise.resolve(undefined),
   showInformationMessage: (..._a: unknown[]): Promise<unknown> => Promise.resolve(undefined),
   showErrorMessage: (..._a: unknown[]): Promise<unknown> => Promise.resolve(undefined),
+  showQuickPick: (..._a: unknown[]): Promise<unknown> => Promise.resolve(undefined),
+  showInputBox: (..._a: unknown[]): Promise<unknown> => Promise.resolve(undefined),
+  createTerminal: (..._a: unknown[]): { show(): void; sendText(t: string): void } => ({ show() {}, sendText() {} }),
   createWebviewPanel(..._a: unknown[]): FakePanel {
     let onMsg: (m: unknown) => unknown = () => undefined;
     const panel: FakePanel = {
@@ -60,7 +64,10 @@ export const window = {
   },
 };
 
-export const workspace = { workspaceFolders: undefined as any };
+export const workspace = {
+  workspaceFolders: undefined as any,
+  getConfiguration: (_section?: string) => ({ get: (_k: string, d?: unknown) => d }),
+};
 export const extensions = {} as any;
 export class Uri {
   constructor(public value = '') {}

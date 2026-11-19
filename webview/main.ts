@@ -80,8 +80,9 @@ function segHtml(s: Seg, i: number, split: boolean): string {
   if (s.heading) cls.push('hd');
   if (isChange(s) && seen.has(s.id)) cls.push('seen');
   const src = s.newLine || s.oldLine ? `<button class="g-src" title="${esc(t('openSource'))}">↗</button>` : '';
+  const ai = isChange(s) ? `<button class="g-ai" title="${esc(t('askAi'))}">✨</button>` : '';
   const gutter = isChange(s)
-    ? `<div class="gutter"><button class="g-seen" title="${esc(t('markSeen'))}">✓</button>${src}</div>`
+    ? `<div class="gutter"><button class="g-seen" title="${esc(t('markSeen'))}">✓</button>${ai}${src}</div>`
     : (src ? `<div class="gutter">${src}</div>` : '');
   const sec = (x: string) => x || t('topOfFile');
   const noteText = s.moveFrom !== undefined ? t('movedFrom', sec(s.moveFrom)) : s.moveTo !== undefined ? t('movedTo', sec(s.moveTo)) : '';
@@ -487,6 +488,7 @@ content.addEventListener('click', (e) => {
   const sec = t.closest<HTMLElement>('section.seg');
   if (!sec || !data) return;
   if (t.closest('.g-seen')) return toggleSeen(sec);
+  if (t.closest('.g-ai')) return vscode.postMessage({ type: 'askAi', i: Number(sec.dataset.i) });
   if (t.closest('.g-src')) {
     const s = data.segments[Number(sec.dataset.i)];
     const line = (s.newLine ?? s.oldLine)![0];
@@ -514,6 +516,7 @@ document.addEventListener('keydown', (e) => {
   else if (k === 'n' || k === 'j') go(1);
   else if (k === 'p' || k === 'k') go(-1);
   else if (k === 'x' && changeEls[cur]) toggleSeen(changeEls[cur]);
+  else if (k === 'a' && changeEls[cur]) vscode.postMessage({ type: 'askAi', i: Number(changeEls[cur].dataset.i) });
   else if (k === 's') setPrefs({ mode: data?.prefs.mode === 'split' ? 'unified' : 'split' });
   else if (k === 'c') setPrefs({ collapse: !data?.prefs.collapse });
   else if (k === 'v' && data?.working) vscode.postMessage({ type: 'toggleViewed' });

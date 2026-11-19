@@ -33,5 +33,11 @@
   "cfg.mrBaseBranch": "Target branch of your pull/merge request, used by the \"As in the PR/MR\" baseline. Leave empty to detect it (origin/HEAD, then main, master, develop).",
   "cfg.renderHtml": "Render raw HTML inside Markdown (e.g. HTML tables). Always off in Restricted Mode.",
   "cfg.allowRemoteImages": "Load images from http(s) URLs in the Review tab. Off by default so opening a document never contacts external servers.",
-  "cfg.mrBaseBranch.invalid": "Not a valid branch name."
+  "cfg.mrBaseBranch.invalid": "Not a valid branch name.",
+  "cfg.ai.channel": "How the \"Ask AI\" action on a change delivers its prompt.",
+  "cfg.ai.ch.clipboard": "Copy the prompt to the clipboard to paste into any assistant (ChatGPT, Claude, Gemini…).",
+  "cfg.ai.ch.terminal": "Open a terminal and run the CLI from mdReview.ai.command with the prompt.",
+  "cfg.ai.ch.chat": "Send the prompt to the active VS Code chat view (e.g. Copilot Chat).",
+  "cfg.ai.command": "CLI launched for the \"terminal\" delivery of Ask AI, with the prompt as its first message (e.g. claude, gemini, codex, aider).",
+  "cfg.ai.command.invalid": "Only letters, digits, spaces and _ . / @ : + ~ ^ - are allowed."
 }

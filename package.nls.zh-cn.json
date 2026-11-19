@@ -12,12 +12,12 @@
   "cmd.toggleViewed": "切换当前文件的已查看状态",
   "cmd.installClaudeHook": "启用 Claude Code 轮次跟踪…",
   "cmd.uninstallClaudeHook": "禁用 Claude Code 轮次跟踪",
+  "cmd.compareClipboard": "与剪贴板比较",
   "cmd.openFile": "打开",
   "cmd.openCommit": "打开提交",
   "cmd.viewAsTree": "以树形显示",
   "cmd.viewAsList": "以列表显示",
   "cmd.scrollToSection": "转到章节",
-  "cmd.compareClipboard": "与剪贴板比较",
   "container": "Markdown Diff",
   "view.changes": "已更改文件",
   "view.outline": "已更改章节",
@@ -32,6 +32,12 @@
   "cfg.b.index": "仅未暂存的更改",
   "cfg.mrBaseBranch": "“与 PR/MR 一致”基准使用的目标分支。留空则自动检测 (origin/HEAD,然后是 main、master、develop)。",
   "cfg.renderHtml": "渲染 Markdown 中的原始 HTML (例如 HTML 表格)。受限模式下始终关闭。",
+  "cfg.mrBaseBranch.invalid": "不是有效的分支名称。",
   "cfg.allowRemoteImages": "在 Review 标签页中加载 http(s) 图片。默认关闭,打开文档时不会访问外部服务器。",
-  "cfg.mrBaseBranch.invalid": "不是有效的分支名称。"
+  "cfg.ai.channel": "更改上的“询问 AI”操作传递提示的方式。",
+  "cfg.ai.ch.clipboard": "将提示复制到剪贴板,以便粘贴到任意助手 (ChatGPT、Claude、Gemini…)。",
+  "cfg.ai.ch.terminal": "打开终端并使用 mdReview.ai.command 中的 CLI 运行提示。",
+  "cfg.ai.ch.chat": "将提示发送到 VS Code 中活动的聊天视图 (例如 Copilot Chat)。",
+  "cfg.ai.command": "用于“询问 AI”的“terminal”传递方式所启动的 CLI,并将提示作为首条消息 (例如 claude、gemini、codex、aider)。",
+  "cfg.ai.command.invalid": "仅允许字母、数字、空格以及 _ . / @ : + ~ ^ -。"
 }

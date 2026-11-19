@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import { randomBytes } from 'node:crypto';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { diffMarkdown, DiffResult } from '../diff/engine';
+import { diffMarkdown, DiffResult, Segment } from '../diff/engine';
+import { askAiAboutChange } from '../ai/askAi';
 import { blameRange } from '../git/git';
 import { hash } from '../baseline/baseline';
 import { WEBVIEW_STRINGS, WebviewStringKey, WebviewStrings } from '../i18n/webviewStrings';
@@ -197,6 +198,26 @@ export class DiffPanel {
       case 'pickBaseline':
         this.host.pickBaseline();
         break;
+      case 'askAi': {
+        const i = int(m.i, 1_000_000);
+        const segs = this.lastRender?.data?.segments as Segment[] | undefined;
+        const seg = i !== undefined ? segs?.[i] : undefined;
+        if (!req || !seg || seg.kind === 'eq') break;
+        const { old, new: cur } = await req.load();
+        const slice = (src: string, r?: [number, number]) => (r ? src.split('\n').slice(r[0], r[1]).join('\n') : '');
+        let section = '';
+        for (let k = i!; k >= 0; k--) { if (segs![k].heading) { section = segs![k].heading!.text; break; } }
+        await askAiAboutChange({
+          root: req.root,
+          rel: req.rel,
+          line: seg.newLine?.[0] ?? seg.oldLine?.[0],
+          section,
+          kind: seg.kind,
+          oldText: slice(old, seg.oldLine),
+          newText: slice(cur, seg.newLine),
+        });
+        break;
+      }
     }
   }
 
