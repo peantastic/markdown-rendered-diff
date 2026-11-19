@@ -1,4 +1,7 @@
 {
+  "\"{0}\" is not a valid commit, tag or branch name.": "\"{0}\" は有効なコミット、タグ、ブランチ名ではありません。",
+  "Links outside the repository are not opened from the Review tab.": "リポジトリ外へのリンクは Review タブからは開きません。",
+  "Cannot install the hook: {0}": "フックをインストールできません: {0}",
   " and {0} more": " ほか {0} 件",
   " · includes: {0}": " · 含む見出し: {0}",
   " — click to collapse": " — クリックで折りたたむ",

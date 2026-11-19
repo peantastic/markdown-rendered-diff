@@ -1,4 +1,7 @@
 {
+  "\"{0}\" is not a valid commit, tag or branch name.": "\"{0}\" không phải tên commit, tag hoặc branch hợp lệ.",
+  "Links outside the repository are not opened from the Review tab.": "Không mở link trỏ ra ngoài repo từ tab Review.",
+  "Cannot install the hook: {0}": "Không cài được hook: {0}",
   " and {0} more": " và {0} mục khác",
   " · includes: {0}": " · gồm mục: {0}",
   " — click to collapse": " — bấm để thu gọn",

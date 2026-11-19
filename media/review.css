@@ -188,3 +188,6 @@ button.icon svg { display: block; }
   border-radius: 3px; color: var(--vscode-descriptionForeground); font-size: 12px;
 }
 .gap .gap-hint { opacity: .75; }
+
+/* document styles cannot overlay the UI (clickjacking inside the Review tab) */
+#content .body [style*="fixed" i], #content .body [style*="sticky" i] { position: static !important; }

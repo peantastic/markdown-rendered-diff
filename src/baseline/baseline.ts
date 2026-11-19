@@ -26,6 +26,19 @@ export function relInside(root: string, abs: string): string | undefined {
   return abs.replace(/[\\/]+/g, '/').slice(r.length);
 }
 
+/** Repository-relative path without absolute/parent components. */
+export function safeRel(rel: string): boolean {
+  if (!rel || rel.includes('\0') || /^([a-zA-Z]:|[\\/])/.test(rel)) return false;
+  return !rel.split(/[\\/]/).some((part) => part === '..');
+}
+
+const KINDS = ['head', 'index', 'mergeBase', 'rev', 'reviewed', 'claude'];
+/** Baselines restored from storage are data: validate before use. */
+export function validBaseline(b: unknown): b is Baseline {
+  const x = b as Baseline | undefined;
+  return !!x && KINDS.includes(x.kind) && (x.kind !== 'rev' || (typeof x.rev === 'string' && x.rev.length > 0 && x.rev.length <= 200 && !x.rev.startsWith('-')));
+}
+
 export type Translate = (message: string, ...args: (string | number)[]) => string;
 
 export function hash(s: string): string {
@@ -60,14 +73,20 @@ export class Baselines {
 
   // ---------- "reviewed" snapshots ----------
   private snapPath(root: string, rel: string) {
-    return join(this.storage, 'snapshots', hash(root), rel);
+    const base = join(this.storage, 'snapshots', hash(root));
+    const p = join(base, rel);
+    // rel always comes from git or our own tree; refuse anything that would escape the snapshot folder
+    if (!safeRel(rel) || relative(base, p).startsWith('..')) throw new Error(`unsafe path: ${rel}`);
+    return p;
   }
   saveSnapshot(root: string, rel: string, content: string) {
+    if (!safeRel(rel)) return;
     const p = this.snapPath(root, rel);
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, content);
   }
   private snapshot(root: string, rel: string): string | undefined {
+    if (!safeRel(rel)) return undefined;
     const p = this.snapPath(root, rel);
     return existsSync(p) ? readFileSync(p, 'utf8') : undefined;
   }
@@ -152,7 +171,8 @@ export class Baselines {
     if (!t) return '';
     const key = Object.keys(t.index).find((abs) => relInside(root, abs) === rel);
     const e = key ? t.index[key] : undefined;
-    return e?.snap ? readText(join(t!.dir, e.snap)) : '';
+    // the hook only ever writes files/<n>.md; ignore anything else found in index.json
+    return typeof e?.snap === 'string' && /^files\/\d+\.md$/.test(e.snap) ? readText(join(t.dir, e.snap)) : '';
   }
 
   async oldContent(root: string, rel: string, b: Baseline): Promise<string> {

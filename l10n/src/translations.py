@@ -6,6 +6,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 
 CODE = [
+("\"{0}\" is not a valid commit, tag or branch name.", "\"{0}\" không phải tên commit, tag hoặc branch hợp lệ.", "\"{0}\" は有効なコミット、タグ、ブランチ名ではありません。", "\"{0}\" 不是有效的提交、标签或分支名称。"),
+("Links outside the repository are not opened from the Review tab.", "Không mở link trỏ ra ngoài repo từ tab Review.", "リポジトリ外へのリンクは Review タブからは開きません。", "不会从 Review 标签页打开指向仓库外部的链接。"),
+("Cannot install the hook: {0}", "Không cài được hook: {0}", "フックをインストールできません: {0}", "无法安装钩子: {0}"),
 (" and {0} more", " và {0} mục khác", " ほか {0} 件", " 等 {0} 项"),
 (" · includes: {0}", " · gồm mục: {0}", " · 含む見出し: {0}", " · 包含章节: {0}"),
 (" — click to collapse", " — bấm để thu gọn", " — クリックで折りたたむ", " — 点击折叠"),
@@ -156,6 +159,7 @@ NLS = {
                      "「PR/MR と同じ」基準で使う PR/MR のターゲット ブランチ。空欄の場合は自動検出します (origin/HEAD、次に main、master、develop)。",
                      "“与 PR/MR 一致”基准使用的目标分支。留空则自动检测 (origin/HEAD,然后是 main、master、develop)。"),
 "cfg.renderHtml": ("Render HTML thô trong Markdown (vd. bảng HTML). Luôn tắt ở Restricted Mode.", "Markdown 内の生 HTML (HTML の表など) を描画します。制限モードでは常にオフです。", "渲染 Markdown 中的原始 HTML (例如 HTML 表格)。受限模式下始终关闭。"),
+"cfg.mrBaseBranch.invalid": ("Tên nhánh không hợp lệ.", "有効なブランチ名ではありません。", "不是有效的分支名称。"),
 "cfg.allowRemoteImages": ("Tải ảnh từ URL http(s) trong tab Review. Mặc định tắt để mở tài liệu không bao giờ gọi ra máy chủ bên ngoài.",
                           "Review タブで http(s) URL の画像を読み込みます。既定ではオフで、ドキュメントを開いても外部サーバーへ接続しません。",
                           "在 Review 标签页中加载 http(s) 图片。默认关闭,打开文档时不会访问外部服务器。"),

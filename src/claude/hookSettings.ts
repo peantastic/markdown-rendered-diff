@@ -8,13 +8,22 @@ export const EVENTS: { event: string; matcher?: string }[] = [
 
 const ours = (h: any) => String(h?.command ?? '').includes(SCRIPT_NAME);
 
-/** Quote a path for a shell command line (POSIX sh and Windows cmd both accept double quotes). */
-export function quote(p: string): string {
-  return `"${p.replace(/"/g, '\\"')}"`;
+/**
+ * Quote a path for the shell Claude Code uses to run hooks.
+ * POSIX: single quotes (no expansion at all). Windows: double quotes, and characters that cmd or
+ * Git Bash would still interpret inside double quotes are rejected instead of escaped.
+ */
+export function quote(p: string, platform: string = process.platform): string {
+  if (/[\0\r\n]/.test(p)) throw new Error('Unsupported character in path');
+  if (platform === 'win32') {
+    if (/["%!`$^]/.test(p)) throw new Error(`Unsupported character in path: ${p}`);
+    return `"${p}"`;
+  }
+  return `'${p.replace(/'/g, `'\\''`)}'`;
 }
 
-export function hookCommand(script: string, dataDir: string): string {
-  return `node ${quote(script)} ${quote(dataDir)}`;
+export function hookCommand(script: string, dataDir: string, platform: string = process.platform): string {
+  return `node ${quote(script, platform)} ${quote(dataDir, platform)}`;
 }
 
 /** Remove our hook entries (any older path too); drop groups and events that become empty. Returns how many were removed. */

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { diffMarkdown, DiffResult } from '../diff/engine';
 import { blameRange } from '../git/git';
 import { hash } from '../baseline/baseline';
@@ -127,8 +128,14 @@ export class DiffPanel {
   }
   private pending: unknown[] = [];
 
+  /**
+   * Messages from the webview are treated as untrusted input: the page renders document content,
+   * so every field is type-checked and paths are confined to the repository.
+   */
   private async onMessage(m: any) {
     const req = this.req;
+    if (!m || typeof m.type !== 'string') return;
+    const int = (v: unknown, max = 10_000_000) => (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= max ? (v as number) : undefined);
     switch (m.type) {
       case 'ready':
         this.ready = true;
@@ -141,50 +148,44 @@ export class DiffPanel {
         if (req) this.host.state.setSeen(req.root, req.rel, m.id, m.value);
         break;
       case 'viewed':
-        if (req) this.host.setViewed(req.root, req.rel, this.newContent, m.value);
+        if (req?.working && typeof m.value === 'boolean') this.host.setViewed(req.root, req.rel, this.newContent, m.value);
         break;
       case 'prefs':
         this.host.state.setPrefs(m.prefs);
         break;
       case 'openSource': {
-        if (!req) break;
+        const line = int(m.line);
+        if (!req || line === undefined) break;
         const uri = vscode.Uri.file(join(req.root, req.rel));
-        const pos = new vscode.Position(m.line, 0);
+        const pos = new vscode.Position(line, 0);
         await vscode.window.showTextDocument(uri, { selection: new vscode.Range(pos, pos), viewColumn: vscode.ViewColumn.Beside });
         break;
       }
       case 'blame': {
-        if (!req) break;
-        const b = await blameRange(req.root, req.rel, m.start + 1, m.end, req.blameRev);
+        const start = int(m.start), end = int(m.end);
+        if (!req || start === undefined || end === undefined || typeof m.id !== 'string' || m.id.length > 300) break;
+        const b = await blameRange(req.root, req.rel, start + 1, end, req.blameRev);
         void this.panel?.webview.postMessage({ type: 'blame', id: m.id, blame: b });
         break;
       }
       case 'nav': {
-        if (!req) break;
+        if (!req || (m.dir !== 1 && m.dir !== -1)) break;
         const nb = this.host.neighbours(req.root, req.rel);
         (m.dir > 0 ? nb.next : nb.prev)?.();
         break;
       }
-      case 'link': {
-        if (!req) break;
-        const href: string = m.href;
-        if (/^[a-z][\w+.-]*:/i.test(href)) {
-          // only open web/mail links externally; never command:, file:, vscode: … from document content
-          if (/^(https?|mailto):/i.test(href)) void vscode.env.openExternal(vscode.Uri.parse(href));
-          break;
-        }
-        const [path, frag] = decodeURI(href).split('#');
-        const target = vscode.Uri.file(join(req.root, req.rel, '..', path));
-        if (/\.(md|markdown)$/i.test(path)) void vscode.commands.executeCommand('mdReview.open', target);
-        else void vscode.commands.executeCommand('vscode.open', target);
-        void frag;
+      case 'link':
+        if (req && typeof m.href === 'string' && m.href.length < 4096) this.openLink(req, m.href);
         break;
-      }
       case 'outline':
-        this.host.onOutline(m.items);
+        if (Array.isArray(m.items)) {
+          this.host.onOutline(m.items.slice(0, 5000).filter((x: any) =>
+            x && Number.isInteger(x.i) && Number.isInteger(x.level) && Number.isInteger(x.n) && typeof x.text === 'string')
+            .map((x: any) => ({ i: x.i, level: x.level, n: x.n, text: x.text.slice(0, 500) })));
+        }
         break;
       case 'section':
-        if (this.panel?.visible) this.host.onSection(m.i);
+        if (this.panel?.visible && Number.isInteger(m.i)) this.host.onSection(m.i);
         break;
       case 'toggleViewed':
         void vscode.commands.executeCommand('mdReview.toggleViewed');
@@ -195,6 +196,27 @@ export class DiffPanel {
     }
   }
 
+  /** Links clicked inside the document: web/mail links open externally, relative links only inside the repository. */
+  private openLink(req: DiffRequest, href: string) {
+    if (/^[a-z][\w+.-]*:/i.test(href)) {
+      // never command:, file:, vscode:, javascript: … coming from document content
+      if (/^(https?|mailto):/i.test(href)) void vscode.env.openExternal(vscode.Uri.parse(href, true));
+      return;
+    }
+    let path: string;
+    try { path = decodeURIComponent(href.split('#')[0].split('?')[0]); } catch { return; }
+    if (!path || path.includes('\0')) return;
+    const abs = path.startsWith('/') ? join(req.root, path) : resolve(req.root, dirname(req.rel), path);
+    const rel = relative(req.root, abs);
+    if (rel.startsWith('..') || isAbsolute(rel)) {
+      void vscode.window.showWarningMessage(vscode.l10n.t('Links outside the repository are not opened from the Review tab.'));
+      return;
+    }
+    const target = vscode.Uri.file(abs);
+    if (/\.(md|markdown)$/i.test(abs)) void vscode.commands.executeCommand('mdReview.open', target);
+    else void vscode.commands.executeCommand('vscode.open', target);
+  }
+
   private baseHref(req: DiffRequest) {
     const dir = vscode.Uri.file(join(req.root, req.rel, '..'));
     return this.panel!.webview.asWebviewUri(dir).toString() + '/';
@@ -203,10 +225,10 @@ export class DiffPanel {
   private html(req: DiffRequest): string {
     const w = this.panel!.webview;
     const u = (...p: string[]) => w.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, ...p)).toString();
-    const nonce = hash(String(Math.random()) + Date.now());
+    const nonce = randomBytes(18).toString('base64');
     const remote = this.host.allowRemoteImages() ? ' https:' : '';
     return `<!doctype html><html lang="${vscode.env.language}"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${w.cspSource} data:${remote}; style-src ${w.cspSource} 'unsafe-inline'; font-src ${w.cspSource}; script-src 'nonce-${nonce}' ${w.cspSource};">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${w.cspSource} data:${remote}; style-src ${w.cspSource} 'unsafe-inline'; font-src ${w.cspSource}; script-src 'nonce-${nonce}'; base-uri ${w.cspSource}; form-action 'none'; frame-src 'none'; object-src 'none';">
 <base id="base" href="${this.baseHref(req)}">
 <link rel="stylesheet" href="${u('media', 'review.css')}">
 </head><body>

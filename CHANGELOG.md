@@ -9,6 +9,7 @@
 - Remote images are blocked by default (`mdReview.allowRemoteImages`); only `http(s)` / `mailto` links open externally.
 - New setting `mdReview.renderHtml`.
 - Confirmation before rendering files larger than 2 MB.
+- Security hardening (see SECURITY.md): DOMPurify sanitization, nonce-only CSP, validated webview messages and revisions, links confined to the repository, git run with repository-defined programs disabled, safer hook command quoting and private snapshot folder.
 - Welcome messages when no repository is found or the workspace is not trusted.
 
 ## 0.4.x — personal builds

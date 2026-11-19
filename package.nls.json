@@ -31,5 +31,6 @@
   "cfg.b.index": "Unstaged changes only",
   "cfg.mrBaseBranch": "Target branch of your pull/merge request, used by the \"As in the PR/MR\" baseline. Leave empty to detect it (origin/HEAD, then main, master, develop).",
   "cfg.renderHtml": "Render raw HTML inside Markdown (e.g. HTML tables). Always off in Restricted Mode.",
-  "cfg.allowRemoteImages": "Load images from http(s) URLs in the Review tab. Off by default so opening a document never contacts external servers."
+  "cfg.allowRemoteImages": "Load images from http(s) URLs in the Review tab. Off by default so opening a document never contacts external servers.",
+  "cfg.mrBaseBranch.invalid": "Not a valid branch name."
 }

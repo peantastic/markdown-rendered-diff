@@ -31,5 +31,6 @@
   "cfg.b.index": "Chỉ phần chưa stage",
   "cfg.mrBaseBranch": "Nhánh đích của PR/MR, dùng cho mốc \"Như trên PR/MR\". Để trống để tự dò (origin/HEAD, rồi main, master, develop).",
   "cfg.renderHtml": "Render HTML thô trong Markdown (vd. bảng HTML). Luôn tắt ở Restricted Mode.",
-  "cfg.allowRemoteImages": "Tải ảnh từ URL http(s) trong tab Review. Mặc định tắt để mở tài liệu không bao giờ gọi ra máy chủ bên ngoài."
+  "cfg.allowRemoteImages": "Tải ảnh từ URL http(s) trong tab Review. Mặc định tắt để mở tài liệu không bao giờ gọi ra máy chủ bên ngoài.",
+  "cfg.mrBaseBranch.invalid": "Tên nhánh không hợp lệ."
 }

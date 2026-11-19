@@ -31,5 +31,6 @@
   "cfg.b.index": "仅未暂存的更改",
   "cfg.mrBaseBranch": "“与 PR/MR 一致”基准使用的目标分支。留空则自动检测 (origin/HEAD,然后是 main、master、develop)。",
   "cfg.renderHtml": "渲染 Markdown 中的原始 HTML (例如 HTML 表格)。受限模式下始终关闭。",
-  "cfg.allowRemoteImages": "在 Review 标签页中加载 http(s) 图片。默认关闭,打开文档时不会访问外部服务器。"
+  "cfg.allowRemoteImages": "在 Review 标签页中加载 http(s) 图片。默认关闭,打开文档时不会访问外部服务器。",
+  "cfg.mrBaseBranch.invalid": "不是有效的分支名称。"
 }

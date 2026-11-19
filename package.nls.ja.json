@@ -31,5 +31,6 @@
   "cfg.b.index": "ステージされていない変更のみ",
   "cfg.mrBaseBranch": "「PR/MR と同じ」基準で使う PR/MR のターゲット ブランチ。空欄の場合は自動検出します (origin/HEAD、次に main、master、develop)。",
   "cfg.renderHtml": "Markdown 内の生 HTML (HTML の表など) を描画します。制限モードでは常にオフです。",
-  "cfg.allowRemoteImages": "Review タブで http(s) URL の画像を読み込みます。既定ではオフで、ドキュメントを開いても外部サーバーへ接続しません。"
+  "cfg.allowRemoteImages": "Review タブで http(s) URL の画像を読み込みます。既定ではオフで、ドキュメントを開いても外部サーバーへ接続しません。",
+  "cfg.mrBaseBranch.invalid": "有効なブランチ名ではありません。"
 }

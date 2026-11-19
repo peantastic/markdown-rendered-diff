@@ -1,4 +1,5 @@
 // Runs inside the Review tab webview: receives diff data from the extension and renders it.
+import DOMPurify from 'dompurify';
 import { WEBVIEW_STRINGS, WebviewStringKey, format } from '../src/i18n/webviewStrings';
 
 declare const acquireVsCodeApi: () => { postMessage(m: unknown): void; getState(): any; setState(s: any): void };
@@ -138,7 +139,7 @@ function render(reset: boolean, restoreY?: number) {
   document.body.classList.toggle('split-mode', split);
   const head = split ? `<div class="split split-head"><div>${esc(t('before'))}</div><div>${esc(t('after'))}</div></div>` : '';
   const empty = data.empty ? `<div class="banner">${esc(data.empty)}</div>` : '';
-  content.innerHTML = empty + head + buildBody(split);
+  content.innerHTML = sanitize(empty + head + buildBody(split));
   localizeStatic(content);
   if (!data.allowRemoteImages) blockRemoteImages(content);
   changeEls = [...content.querySelectorAll<HTMLElement>('section.seg:not(.k-eq)')];
@@ -155,6 +156,24 @@ function render(reset: boolean, restoreY?: number) {
 function observeMermaid() {
   content.querySelectorAll('.mermaid-src').forEach((el) => mmObserver.observe(el));
 }
+
+/**
+ * Document HTML is untrusted (raw HTML is allowed in Markdown). The CSP already blocks scripts;
+ * this also removes elements that could navigate, submit or embed content, and inline event handlers.
+ */
+const PURIFY = {
+  FORBID_TAGS: ['style', 'form', 'input', 'textarea', 'select', 'option', 'iframe', 'frame', 'object', 'embed', 'meta', 'link', 'base', 'audio', 'video', 'source', 'track', 'portal'],
+  FORBID_ATTR: ['action', 'formaction', 'srcset', 'ping', 'background', 'poster'],
+  ADD_ATTR: ['hidden'],
+  ALLOW_UNKNOWN_PROTOCOLS: false,
+};
+function sanitize(html: string): string {
+  return DOMPurify.sanitize(html, PURIFY) as unknown as string;
+}
+// links never open a new browsing context from the webview
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node instanceof Element && node.hasAttribute('target')) node.removeAttribute('target');
+});
 
 /** Engine-generated labels carry data-i18n keys with English text; translate them in place. */
 function localizeStatic(root: HTMLElement) {

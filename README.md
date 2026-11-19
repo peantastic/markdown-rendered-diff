@@ -76,10 +76,11 @@ The hook never blocks Claude Code (it ignores every error and always exits succe
 
 ## Privacy and security
 
-- No telemetry. Nothing leaves your machine.
-- Remote images are blocked unless you enable `mdReview.allowRemoteImages`.
-- The Review tab runs with a strict Content Security Policy; scripts inside documents are never executed. Links to `command:`, `file:` and similar schemes are ignored.
-- In Restricted Mode (untrusted workspaces) the extension does not run git and does not render raw HTML.
+- No telemetry. Nothing leaves your machine; remote images are blocked unless you enable `mdReview.allowRemoteImages`.
+- Document HTML is sanitized and the Review tab runs under a strict Content Security Policy: scripts inside documents never run, and links to `command:` / `file:` URIs are ignored.
+- git is called with repository-defined programs disabled (fsmonitor, external diff, textconv, pager), and never in Restricted Mode.
+
+Details and how to report a vulnerability: [SECURITY.md](SECURITY.md).
 
 ## Known limitations
 

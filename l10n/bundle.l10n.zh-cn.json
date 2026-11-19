@@ -1,4 +1,7 @@
 {
+  "\"{0}\" is not a valid commit, tag or branch name.": "\"{0}\" 不是有效的提交、标签或分支名称。",
+  "Links outside the repository are not opened from the Review tab.": "不会从 Review 标签页打开指向仓库外部的链接。",
+  "Cannot install the hook: {0}": "无法安装钩子: {0}",
   " and {0} more": " 等 {0} 项",
   " · includes: {0}": " · 包含章节: {0}",
   " — click to collapse": " — 点击折叠",

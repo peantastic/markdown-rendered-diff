@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { basename } from 'node:path/posix';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { Baseline, Baselines, readText, relInside } from './baseline/baseline';
-import { Commit, revExists, show } from './git/git';
+import { Commit, gitExecutable, isSafeRev, revExists, SAFE_CONFIG, setGitPath, show } from './git/git';
 import { DiffPanel, DiffRequest } from './panel/diffPanel';
 import { ReviewState } from './state/reviewState';
 import { ChangesTree, FileNode, HistoryTree, OutlineTree } from './views/trees';
@@ -27,6 +27,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
   try {
     const ext = vscode.extensions.getExtension('vscode.git');
     gitApi = (await ext?.activate())?.getAPI(1);
+    setGitPath(gitApi?.git?.path);
   } catch { /* git extension disabled */ }
   // also pick up repositories one level below the workspace folders (the git extension may not open them)
   let scanned: string[] = [];
@@ -55,7 +56,7 @@ export async function activate(ctx: vscode.ExtensionContext) {
     const r = roots().filter((x) => relInside(x, file) !== undefined).sort((a, b) => b.length - a.length)[0];
     if (r) return r;
     try {
-      const top = execFileSync('git', ['-C', dirname(file), 'rev-parse', '--show-toplevel']).toString().trim();
+      const top = execFileSync(gitExecutable(), ['-C', dirname(file), ...SAFE_CONFIG, 'rev-parse', '--show-toplevel'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
       return top ? resolve(top) : undefined;
     } catch { return undefined; }
   };
@@ -241,8 +242,9 @@ export async function activate(ctx: vscode.ExtensionContext) {
     if (pick.enableClaude && !(await installClaudeHook(ctx))) return;
     let b: Baseline | undefined = pick.enableClaude ? { kind: 'claude' } : pick.b;
     if (pick.custom) {
-      const rev = await vscode.window.showInputBox({ prompt: vscode.l10n.t('Commit, tag or branch (e.g. HEAD~3, main, origin/main)'), value: cur.rev });
+      const rev = (await vscode.window.showInputBox({ prompt: vscode.l10n.t('Commit, tag or branch (e.g. HEAD~3, main, origin/main)'), value: cur.rev }))?.trim();
       if (!rev) return;
+      if (!isSafeRev(rev.trim())) return vscode.window.showWarningMessage(vscode.l10n.t('"{0}" is not a valid commit, tag or branch name.', rev));
       const ok = await Promise.all(roots().map((r) => revExists(r, rev)));
       if (!ok.some(Boolean)) return vscode.window.showWarningMessage(vscode.l10n.t('"{0}" was not found.', rev));
       b = { kind: 'rev', rev };

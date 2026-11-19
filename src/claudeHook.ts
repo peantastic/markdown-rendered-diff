@@ -63,11 +63,18 @@ export async function installClaudeHook(ctx: vscode.ExtensionContext): Promise<b
     return false;
   }
   const script = scriptPath();
-  mkdirSync(dirname(script), { recursive: true });
-  copyFileSync(join(ctx.extensionPath, 'hooks', SCRIPT_NAME), script);
   // forward slashes work for node on Windows and survive both cmd and Git Bash quoting
   const fwd = (x: string) => (process.platform === 'win32' ? x.replace(/\\/g, '/') : x);
-  writeSettings(addHook(json, hookCommand(fwd(script), fwd(claudeDataDir()))));
+  let command: string;
+  try {
+    command = hookCommand(fwd(script), fwd(claudeDataDir()));
+  } catch (e) {
+    void vscode.window.showErrorMessage(vscode.l10n.t('Cannot install the hook: {0}', String((e as Error).message)));
+    return false;
+  }
+  mkdirSync(dirname(script), { recursive: true });
+  copyFileSync(join(ctx.extensionPath, 'hooks', SCRIPT_NAME), script);
+  writeSettings(addHook(json, command));
   void vscode.window.showInformationMessage(vscode.l10n.t('Claude Code turn tracking is on. It applies to Claude Code sessions started from now on.'));
   return true;
 }
