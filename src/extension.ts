@@ -132,6 +132,26 @@ export async function activate(ctx: vscode.ExtensionContext) {
     const u = tabUri();
     return u && isMd(u.fsPath) ? u : lastMd;
   };
+  // the built-in text diff of a Markdown file -> render that exact diff (original vs modified)
+  const activeDiff = (): { original: vscode.Uri; modified: vscode.Uri } | undefined => {
+    const inp = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+    return inp instanceof vscode.TabInputTextDiff && isMd(inp.modified.fsPath)
+      ? { original: inp.original, modified: inp.modified } : undefined;
+  };
+  const docText = async (u: vscode.Uri): Promise<string> => {
+    try { return (await vscode.workspace.openTextDocument(u)).getText(); } catch { return ''; }
+  };
+  async function openDiffTab(d: { original: vscode.Uri; modified: vscode.Uri }) {
+    const abs = d.modified.fsPath;
+    const root = (trusted() ? rootOf(abs) : undefined) ?? dirname(abs);
+    const rel = relInside(root, abs) ?? abs.slice(root.length + 1);
+    await panel.show({
+      root, rel, working: false,
+      title: basename(rel),
+      sub: vscode.l10n.t('Editor diff'),
+      load: async () => ({ old: await docText(d.original), new: await docText(d.modified) }),
+    });
+  }
   const trackActive = () => {
     const u = tabUri();
     if (u && u.scheme === 'file' && isMd(u.fsPath)) {
@@ -180,6 +200,10 @@ export async function activate(ctx: vscode.ExtensionContext) {
 
   reg('mdReview.open', async (arg?: any) => {
     let uri: vscode.Uri | undefined = arg instanceof vscode.Uri ? arg : arg?.resourceUri ?? undefined;
+    if (!uri) {
+      const d = activeDiff();
+      if (d) return openDiffTab(d); // render the diff the user is already looking at
+    }
     uri ??= activeMd();
     if (!trusted()) {
       return vscode.window.showWarningMessage(vscode.l10n.t('Markdown Rendered Diff needs a trusted workspace to read git history.'));

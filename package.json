@@ -169,7 +169,7 @@
         {
           "command": "mdReview.open",
           "group": "navigation",
-          "when": "resourceLangId == markdown || activeCustomEditorId == vscode.markdown.preview.editor || activeWebviewPanelId == markdown.preview"
+          "when": "resourceLangId == markdown || activeCustomEditorId == vscode.markdown.preview.editor || activeWebviewPanelId == markdown.preview || (isInDiffEditor && resourceExtname =~ /\\.(md|markdown)$/)"
         }
       ],
       "explorer/context": [

@@ -104,5 +104,6 @@
   "⋯ 1 unchanged row — click to expand": "⋯ 1 行未更改 — 点击展开",
   "⋯ {0} unchanged rows — click to expand": "⋯ {0} 行未更改 — 点击展开",
   "Clipboard": "剪贴板",
-  "The clipboard is empty.": "剪贴板为空。"
+  "The clipboard is empty.": "剪贴板为空。",
+  "Editor diff": "编辑器差异"
 }

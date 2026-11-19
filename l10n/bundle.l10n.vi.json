@@ -104,5 +104,6 @@
   "⋯ 1 unchanged row — click to expand": "⋯ 1 dòng không đổi — bấm để mở",
   "⋯ {0} unchanged rows — click to expand": "⋯ {0} dòng không đổi — bấm để mở",
   "Clipboard": "Clipboard",
-  "The clipboard is empty.": "Clipboard đang trống."
+  "The clipboard is empty.": "Clipboard đang trống.",
+  "Editor diff": "Khác biệt trong editor"
 }
