@@ -149,3 +149,37 @@ describe('diffMarkdown', () => {
     expect(a.segments.map((s) => s.id)).toEqual(b.segments.map((s) => s.id));
   });
 });
+
+describe('extended markdown (KaTeX, alerts, footnotes)', () => {
+  const html = (src: string) => diffMarkdown('', src).segments.map((s) => s.new).join('');
+
+  it('renders KaTeX math', () => {
+    expect(html('Mass–energy: $E = mc^2$.')).toContain('class="katex"');
+    expect(html('$$\\int_0^1 x\\,dx$$')).toContain('katex');
+  });
+
+  it('bad LaTeX does not throw', () => {
+    expect(() => diffMarkdown('', 'oops $\\frac{1}{$')).not.toThrow();
+  });
+
+  it('renders GitHub alerts', () => {
+    const h = html('> [!NOTE]\n> Heads up.');
+    expect(h).toContain('markdown-alert');
+    expect(h).toContain('markdown-alert-note');
+  });
+
+  it('renders footnotes', () => {
+    expect(html('Claim.[^1]\n\n[^1]: The source.')).toContain('footnote');
+  });
+
+  it('diffs a changed formula as a modification', () => {
+    const r = diffMarkdown('Energy is $E = mc^2$ here.', 'Energy is $E = mc^3$ here.');
+    expect(r.stats.mod).toBe(1);
+    expect(r.segments.find((s) => s.kind === 'mod')!.unified).toContain('katex');
+  });
+
+  it('detects a changed alert body', () => {
+    const r = diffMarkdown('> [!TIP]\n> old tip', '> [!TIP]\n> new tip');
+    expect(r.stats.add + r.stats.del + r.stats.mod).toBeGreaterThan(0);
+  });
+});

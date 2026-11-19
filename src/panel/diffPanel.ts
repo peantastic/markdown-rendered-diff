@@ -234,6 +234,7 @@ export class DiffPanel {
     return `<!doctype html><html lang="${vscode.env.language}"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${w.cspSource} data:${remote}; style-src ${w.cspSource} 'unsafe-inline'; font-src ${w.cspSource}; script-src 'nonce-${nonce}'; base-uri ${w.cspSource}; form-action 'none'; frame-src 'none'; object-src 'none';">
 <base id="base" href="${this.baseHref(req)}">
+<link rel="stylesheet" href="${u('media', 'katex', 'katex.min.css')}">
 <link rel="stylesheet" href="${u('media', 'review.css')}">
 </head><body>
 ${pageBody(webviewStrings())}

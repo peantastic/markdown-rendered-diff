@@ -1,7 +1,16 @@
 import MarkdownIt from 'markdown-it';
+import katex from '@vscode/markdown-it-katex';
+import footnote from 'markdown-it-footnote';
+import githubAlerts from 'markdown-it-github-alerts';
 import { textOf } from './tokenize';
 
-const make = (html: boolean) => new MarkdownIt('commonmark', { html }).enable(['table', 'strikethrough']);
+const make = (html: boolean) =>
+  new MarkdownIt('commonmark', { html })
+    .enable(['table', 'strikethrough'])
+    // KaTeX math ($…$, $$…$$); throwOnError:false renders bad LaTeX as inline error, never breaking the block
+    .use(katex, { throwOnError: false })
+    .use(footnote)
+    .use(githubAlerts);
 /** Renderer with raw HTML enabled (default) and one that escapes it (untrusted workspaces / mdReview.renderHtml = false). */
 export const md = make(true);
 const mdHtml = md;
