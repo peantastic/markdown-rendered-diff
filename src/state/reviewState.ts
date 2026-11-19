@@ -4,7 +4,7 @@ import type { Baseline } from '../baseline/baseline';
 
 export interface Prefs { mode: 'unified' | 'split'; collapse: boolean }
 
-/** Trạng thái review lưu theo workspace: file đã xem (gắn với nội dung), thay đổi đã xem, mốc so sánh. */
+/** Per-workspace review state: viewed files (tied to content), seen changes, baseline. */
 export class ReviewState {
   constructor(private ws: vscode.Memento, private global: vscode.Memento) {}
 
@@ -23,7 +23,7 @@ export class ReviewState {
   setSeen(root: string, rel: string, id: string, v: boolean) {
     const s = new Set(this.seen(root, rel));
     if (v) s.add(id); else s.delete(id);
-    // giữ tối đa 2000 id mỗi file
+    // keep at most 2000 ids per file
     void this.ws.update('seen:' + this.k(root, rel), [...s].slice(-2000));
   }
 

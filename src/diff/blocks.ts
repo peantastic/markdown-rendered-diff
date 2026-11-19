@@ -1,26 +1,33 @@
 import MarkdownIt from 'markdown-it';
 import { textOf } from './tokenize';
 
-export const md = new MarkdownIt('commonmark', { html: true }).enable(['table', 'strikethrough']);
-type Token = ReturnType<typeof md.parse>[number];
+const make = (html: boolean) => new MarkdownIt('commonmark', { html }).enable(['table', 'strikethrough']);
+/** Renderer with raw HTML enabled (default) and one that escapes it (untrusted workspaces / mdReview.renderHtml = false). */
+export const md = make(true);
+const mdHtml = md;
+const mdNoHtml = make(false);
+type Md = typeof md;
+type Token = ReturnType<Md['parse']>[number];
+
+export interface ParseOptions { html?: boolean }
 
 export interface Cell { tag: 'th' | 'td'; attrs: string; html: string }
 export type Row = Cell[];
-/** Mô hình bảng chung cho bảng Markdown (| a | b |) và bảng HTML (<table>…). */
+/** Common table model for Markdown tables (| a | b |) and raw HTML tables (<table>…). */
 export interface TableData {
-  open: string; // thẻ mở <table …> (giữ class)
+  open: string; // opening <table …> tag (keeps attributes)
   colgroup: string;
   head: Row[];
   body: Row[];
-  pre: string; // HTML đứng trước/sau bảng trong cùng block
+  pre: string; // HTML before/after the table inside the same block
   post: string;
 }
 
 export interface Block {
   type: string; // paragraph | heading | table | fence | mermaid | bullet_list | ...
-  key: string; // nội dung nguồn dùng để so sánh
+  key: string; // source text used for comparison
   html: string;
-  line: [number, number] | null; // dòng nguồn [bắt đầu, kết thúc) (0-based)
+  line: [number, number] | null; // source lines [start, end) (0-based)
   heading?: { level: number; text: string };
   table?: TableData;
   mermaid?: string;
@@ -30,7 +37,7 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-/** Frontmatter YAML đầu file -> khối code (giữ nguyên số dòng để data-line vẫn đúng). */
+/** Leading YAML front matter -> fenced code block (line count preserved so line numbers stay correct). */
 function normalizeSource(src: string): string {
   src = src.normalize('NFC').replace(/\r\n?/g, '\n');
   const m = /^---\n([\s\S]*?\n)---\n/.exec(src);
@@ -38,7 +45,7 @@ function normalizeSource(src: string): string {
   return src;
 }
 
-function parseMdTable(toks: Token[], env: any): TableData {
+function parseMdTable(md: Md, toks: Token[], env: any): TableData {
   const t: TableData = { open: '<table>', colgroup: '', head: [], body: [], pre: '', post: '' };
   let row: Row | null = null;
   let inHead = false;
@@ -66,7 +73,7 @@ function parseMdTable(toks: Token[], env: any): TableData {
 const ROW_RE = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
 const CELL_RE = /<(th|td)\b([^>]*)>([\s\S]*?)<\/\1>/gi;
 
-/** Bảng HTML thô trong html_block. Trả undefined nếu không chắc chắn (nhiều bảng, bảng lồng…). */
+/** Raw HTML table inside an html_block. Returns undefined when unsure (several tables, nested tables…). */
 export function parseHtmlTable(html: string): TableData | undefined {
   if ((html.match(/<table\b/gi) ?? []).length !== 1) return undefined;
   const s = html.search(/<table\b/i);
@@ -106,7 +113,8 @@ export function mermaidHtml(code: string): string {
   return `<div class="mermaid-box"><pre class="mermaid-src">${escapeHtml(code)}</pre></div>`;
 }
 
-export function parseBlocks(source: string): Block[] {
+export function parseBlocks(source: string, opts: ParseOptions = {}): Block[] {
+  const md = opts.html === false ? mdNoHtml : mdHtml;
   const src = normalizeSource(source);
   const lines = src.split('\n');
   const env: any = {};
@@ -134,11 +142,11 @@ export function parseBlocks(source: string): Block[] {
       b.mermaid = t.content;
       b.html = mermaidHtml(t.content);
     } else if (t.type === 'table_open') {
-      b.table = parseMdTable(seg, env);
+      b.table = parseMdTable(md, seg, env);
       b.html = renderTable(b.table);
     } else if (t.type === 'html_block' && /<table\b/i.test(t.content) && (b.table = parseHtmlTable(t.content))) {
       b.type = 'table';
-      b.html = t.content; // giữ nguyên HTML gốc khi không có thay đổi
+      b.html = t.content; // keep the original HTML when unchanged
     } else {
       b.html = md.renderer.render(seg, md.options, env);
       if (t.type === 'heading_open') {

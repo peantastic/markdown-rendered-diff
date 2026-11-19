@@ -1,4 +1,4 @@
-import { Block, escapeHtml, mermaidHtml, parseBlocks } from './blocks';
+import { Block, escapeHtml, mermaidHtml, ParseOptions, parseBlocks } from './blocks';
 import { inlineDiff } from './inlineDiff';
 import { align, tableDiff } from './tableDiff';
 import { similarity } from './tokenize';
@@ -6,16 +6,18 @@ import { similarity } from './tokenize';
 export type SegKind = 'eq' | 'add' | 'del' | 'mod' | 'move' | 'moveSrc';
 
 export interface Segment {
-  id: string; // ổn định theo nội dung -> dùng lưu trạng thái "đã xem" từng thay đổi
+  id: string; // stable per content -> used to persist the per-change "seen" state
   kind: SegKind;
   blockType: string;
   unified: string;
-  old: string; // html bên cũ ('' nếu không có)
-  new: string; // html bên mới ('' nếu không có)
+  old: string; // old-side html ('' if none)
+  new: string; // new-side html ('' if none)
   newLine?: [number, number];
   oldLine?: [number, number];
   heading?: { level: number; text: string };
-  note?: string;
+  /** Moved block: heading text of the section it came from / went to ('' = top of file). */
+  moveFrom?: string;
+  moveTo?: string;
 }
 
 export interface DiffStats { add: number; del: number; mod: number; move: number }
@@ -34,9 +36,9 @@ function mermaidPair(oldCode: string, newCode: string): string {
   const code = inlineDiff(escapeHtml(oldCode), escapeHtml(newCode)).unified;
   return (
     '<div class="mm-pair">' +
-    `<div><div class="mm-label">Trước</div>${mermaidHtml(oldCode)}</div>` +
-    `<div><div class="mm-label">Sau</div>${mermaidHtml(newCode)}</div>` +
-    `</div><details class="mm-code"><summary>Diff mã nguồn sơ đồ</summary><pre><code>${code}</code></pre></details>`
+    `<div><div class="mm-label" data-i18n="before">Before</div>${mermaidHtml(oldCode)}</div>` +
+    `<div><div class="mm-label" data-i18n="after">After</div>${mermaidHtml(newCode)}</div>` +
+    `</div><details class="mm-code"><summary data-i18n="diagramSourceDiff">Diagram source diff</summary><pre><code>${code}</code></pre></details>`
   );
 }
 
@@ -52,9 +54,9 @@ function modify(a: Block, b: Block): Omit<Segment, 'id' | 'kind' | 'blockType'> 
   return { unified: d.unified, old: d.old, new: d.new, changed: d.changed };
 }
 
-export function diffMarkdown(oldSrc: string, newSrc: string): DiffResult {
-  const A = parseBlocks(oldSrc);
-  const B = parseBlocks(newSrc);
+export function diffMarkdown(oldSrc: string, newSrc: string, opts: ParseOptions = {}): DiffResult {
+  const A = parseBlocks(oldSrc, opts);
+  const B = parseBlocks(newSrc, opts);
   const pairs = align(A.map((x) => x.key), B.map((x) => x.key), (o, n) =>
     A[o].type === B[n].type && similarity(A[o].key, B[n].key) > 0.4);
 
@@ -84,24 +86,24 @@ export function diffMarkdown(oldSrc: string, newSrc: string): DiffResult {
     }
   }
 
-  // Nhận diện đoạn di chuyển: block bị xoá ở chỗ này và thêm y hệt ở chỗ khác
+  // Detect moved blocks: removed in one place and added verbatim elsewhere
   const dels = new Map<string, number[]>();
   segs.forEach((s, i) => {
     if (s.kind === 'del' && s.key.length >= 30) dels.set(s.key, [...(dels.get(s.key) ?? []), i]);
   });
   const sectionAt = (idx: number) => {
     for (let i = idx; i >= 0; i--) if (segs[i].heading) return segs[i].heading!.text;
-    return 'đầu file';
+    return '';
   };
   segs.forEach((s, i) => {
     if (s.kind !== 'add') return;
     const src = dels.get(s.key)?.shift();
     if (src === undefined) return;
     s.kind = 'move';
-    s.note = `Đã chuyển từ mục “${sectionAt(src)}”`;
+    s.moveFrom = sectionAt(src);
     const d = segs[src];
     d.kind = 'moveSrc';
-    d.note = `Đoạn này đã chuyển tới mục “${sectionAt(i)}”`;
+    d.moveTo = sectionAt(i);
     d.unified = '';
   });
 

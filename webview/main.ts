@@ -1,4 +1,6 @@
-// Chạy trong webview của tab "Review". Nhận dữ liệu diff từ extension và hiển thị.
+// Runs inside the Review tab webview: receives diff data from the extension and renders it.
+import { WEBVIEW_STRINGS, WebviewStringKey, format } from '../src/i18n/webviewStrings';
+
 declare const acquireVsCodeApi: () => { postMessage(m: unknown): void; getState(): any; setState(s: any): void };
 declare const mermaid: any;
 
@@ -6,15 +8,21 @@ interface Seg {
   id: string; kind: 'eq' | 'add' | 'del' | 'mod' | 'move' | 'moveSrc'; blockType: string;
   unified: string; old: string; new: string;
   newLine?: [number, number]; oldLine?: [number, number];
-  heading?: { level: number; text: string }; note?: string;
+  heading?: { level: number; text: string }; moveFrom?: string; moveTo?: string;
 }
 interface Prefs { mode: 'unified' | 'split'; collapse: boolean }
 interface Data {
   key: string; title: string; sub: string; working: boolean;
   stats: { add: number; del: number; mod: number; move: number };
   segments: Seg[]; viewed?: boolean; seen: string[]; pos?: string; hasPrev: boolean; hasNext: boolean;
-  prefs: Prefs; empty?: string;
+  prefs: Prefs; empty?: string; where?: string; allowRemoteImages?: boolean;
 }
+
+// ---------- i18n ----------
+const i18nEl = document.getElementById('i18n');
+const I18N: { lang?: string; strings?: Partial<Record<WebviewStringKey, string>> } = i18nEl ? JSON.parse(i18nEl.textContent || '{}') : {};
+const t = (k: WebviewStringKey, ...args: (string | number)[]) => format(I18N.strings?.[k] ?? WEBVIEW_STRINGS[k], ...args);
+const lang = I18N.lang || undefined;
 
 const vscode = acquireVsCodeApi();
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -23,7 +31,7 @@ let data: Data | undefined;
 let seen = new Set<string>();
 let changeEls: HTMLElement[] = [];
 let cur = -1;
-const expanded = new Set<number>(); // nhóm "không đổi" người dùng đã mở (theo chỉ số đoạn đầu nhóm)
+const expanded = new Set<number>(); // unchanged groups the user expanded (by index of first block)
 const isChange = (s: Seg) => s.kind !== 'eq';
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -47,7 +55,7 @@ const mmObserver = new IntersectionObserver((entries) => {
     mmObserver.unobserve(el);
     if (!mmReady) continue;
     const code = el.textContent ?? '';
-    // đợi font nạp xong rồi mới đo chữ -> nhãn không bị cắt
+    // wait for fonts before measuring text so node labels are not clipped
     document.fonts.ready
       .then(() => mermaid.render(`mm${++mmSeq}`, code))
       .then(({ svg }: { svg: string }) => {
@@ -56,7 +64,7 @@ const mmObserver = new IntersectionObserver((entries) => {
       })
       .catch((err: Error) => {
         el.classList.add('mm-error');
-        el.setAttribute('title', 'Không render được sơ đồ: ' + err.message);
+        el.setAttribute('title', t('diagramError', err.message));
       });
   }
 }, { rootMargin: '400px' });
@@ -66,14 +74,16 @@ function segHtml(s: Seg, i: number, split: boolean): string {
   const cls = ['seg', 'k-' + s.kind];
   if (s.heading) cls.push('hd');
   if (isChange(s) && seen.has(s.id)) cls.push('seen');
-  const src = s.newLine || s.oldLine ? '<button class="g-src" title="Mở dòng nguồn">↗</button>' : '';
+  const src = s.newLine || s.oldLine ? `<button class="g-src" title="${esc(t('openSource'))}">↗</button>` : '';
   const gutter = isChange(s)
-    ? `<div class="gutter"><button class="g-seen" title="Đánh dấu đã xem thay đổi này ( x )">✓</button>${src}</div>`
+    ? `<div class="gutter"><button class="g-seen" title="${esc(t('markSeen'))}">✓</button>${src}</div>`
     : (src ? `<div class="gutter">${src}</div>` : '');
-  const note = s.note ? `<div class="note">${s.kind === 'move' ? '↪' : '↧'} ${esc(s.note)}</div>` : '';
+  const sec = (x: string) => x || t('topOfFile');
+  const noteText = s.moveFrom !== undefined ? t('movedFrom', sec(s.moveFrom)) : s.moveTo !== undefined ? t('movedTo', sec(s.moveTo)) : '';
+  const note = noteText ? `<div class="note">${s.kind === 'move' ? '↪' : '↧'} ${esc(noteText)}</div>` : '';
   let body: string;
   if (s.kind === 'moveSrc') body = '';
-  else if (split && s.kind === 'eq') body = `<div class="same">${s.new}</div>`; // không đổi: hiện 1 lần, trải 2 cột
+  else if (split && s.kind === 'eq') body = `<div class="same">${s.new}</div>`; // unchanged: shown once across both columns
   else if (split) {
     const L = s.kind === 'add' || s.kind === 'move' ? '<div class="L empty"></div>' : `<div class="L">${s.old}</div>`;
     const R = s.kind === 'del' ? '<div class="R empty"></div>' : `<div class="R">${s.new}</div>`;
@@ -82,7 +92,7 @@ function segHtml(s: Seg, i: number, split: boolean): string {
   return `<section class="${cls.join(' ')}" data-i="${i}"${s.heading ? ` id="h${i}"` : ''}>${gutter}${note}<div class="body">${body}</div></section>`;
 }
 
-/** Các đoạn không đổi cách thay đổi > 1 đoạn được gom vào nhóm thu gọn. */
+/** Unchanged blocks more than one block away from a change are folded into collapsible groups. */
 function buildBody(split: boolean): string {
   const segs = data!.segments;
   const collapse = data!.prefs.collapse && segs.some(isChange);
@@ -96,10 +106,9 @@ function buildBody(split: boolean): string {
     const group = segs.slice(i, j);
     const heads = group.filter((s) => s.heading).map((s) => s.heading!.text);
     const open = expanded.has(i);
-    const label = `⋯ ${group.length} đoạn không đổi` +
-      (heads.length ? ` · gồm mục: ${esc(heads.slice(0, 4).join(', '))}${heads.length > 4 ? ` và ${heads.length - 4} mục khác` : ''}` : '') +
-      (open ? ' — bấm để thu gọn' : ' — bấm để mở');
-    out += `<div class="gap${open ? ' open' : ''}" data-g="${i}">${label}</div>` +
+    const label = esc((group.length === 1 ? t('unchangedBlock') : t('unchangedBlocks', group.length)) +
+      (heads.length ? t('includesSections', heads.slice(0, 4).join(', ') + (heads.length > 4 ? t('andMore', heads.length - 4) : '')) : ''));
+    out += `<div class="gap${open ? ' open' : ''}" data-g="${i}"><span class="gap-label">${label}</span><span class="gap-hint">${esc(open ? t('clickToCollapse') : t('clickToExpand'))}</span></div>` +
       `<div class="gapbody" data-g="${i}"${open ? '' : ' hidden'}>${group.map((x, k) => segHtml(x, i + k, split)).join('')}</div>`;
     i = j;
   }
@@ -113,23 +122,25 @@ function render(reset: boolean, restoreY?: number) {
   $('only').classList.toggle('on', !p.collapse);
   $('mUnified').classList.toggle('on', p.mode === 'unified');
   $('mSplit').classList.toggle('on', p.mode === 'split');
-  // tên file đã có trên tab -> thanh công cụ hiện thư mục chứa file (hoặc nội dung commit khi xem lịch sử)
-  $('title').innerHTML = `<bdi>${esc((data as any).where ?? data.title)}</bdi>`;
+  // the file name is already on the tab -> the toolbar shows the containing folder (or the commit when viewing history)
+  $('title').innerHTML = `<bdi>${esc(data.where ?? data.title)}</bdi>`;
   $('pos').textContent = data.pos ? data.pos : '';
-  $('title').parentElement!.title = `${data.title}\n${(data as any).where ?? ''}\nSo với: ${data.sub}\n\nBấm ? để xem phím tắt`;
+  $('title').parentElement!.title = `${data.title}\n${data.where ?? ''}\n${t('compareWith', data.sub)}\n\n${t('pressHelp')}`;
   const s = data.stats;
   $('stats').innerHTML = [
-    s.add && `<span class="pill p-add" title="đoạn thêm">+${s.add}</span>`,
-    s.del && `<span class="pill p-del" title="đoạn xoá">−${s.del}</span>`,
-    s.mod && `<span class="pill p-mod" title="đoạn sửa">~${s.mod}</span>`,
-    s.move && `<span class="pill p-move" title="đoạn di chuyển">↕${s.move}</span>`,
-  ].filter(Boolean).join('') || '<span class="muted">không có thay đổi</span>';
+    s.add && `<span class="pill p-add" title="${esc(t('addedBlocks'))}">+${s.add}</span>`,
+    s.del && `<span class="pill p-del" title="${esc(t('removedBlocks'))}">−${s.del}</span>`,
+    s.mod && `<span class="pill p-mod" title="${esc(t('modifiedBlocks'))}">~${s.mod}</span>`,
+    s.move && `<span class="pill p-move" title="${esc(t('movedBlocks'))}">↕${s.move}</span>`,
+  ].filter(Boolean).join('') || `<span class="muted">${esc(t('noChanges'))}</span>`;
 
   const split = p.mode === 'split';
   document.body.classList.toggle('split-mode', split);
-  const head = split ? '<div class="split split-head"><div>Trước</div><div>Sau</div></div>' : '';
+  const head = split ? `<div class="split split-head"><div>${esc(t('before'))}</div><div>${esc(t('after'))}</div></div>` : '';
   const empty = data.empty ? `<div class="banner">${esc(data.empty)}</div>` : '';
   content.innerHTML = empty + head + buildBody(split);
+  localizeStatic(content);
+  if (!data.allowRemoteImages) blockRemoteImages(content);
   changeEls = [...content.querySelectorAll<HTMLElement>('section.seg:not(.k-eq)')];
   if (cur >= changeEls.length) cur = -1;
   changeEls[cur]?.classList.add('focus');
@@ -145,7 +156,27 @@ function observeMermaid() {
   content.querySelectorAll('.mermaid-src').forEach((el) => mmObserver.observe(el));
 }
 
-// ---------- bảng: thu gọn hàng không đổi + căn thẳng 2 cột ----------
+/** Engine-generated labels carry data-i18n keys with English text; translate them in place. */
+function localizeStatic(root: HTMLElement) {
+  root.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
+    const k = el.dataset.i18n as WebviewStringKey;
+    if (k in WEBVIEW_STRINGS) el.textContent = t(k);
+  });
+}
+
+/** Without mdReview.allowRemoteImages the CSP blocks http(s) images; show a readable placeholder instead of a broken icon. */
+function blockRemoteImages(root: HTMLElement) {
+  root.querySelectorAll<HTMLImageElement>('img[src]').forEach((img) => {
+    if (!/^https?:/i.test(img.getAttribute('src') ?? '')) return;
+    const ph = document.createElement('span');
+    ph.className = 'img-blocked';
+    ph.textContent = `🖼 ${img.getAttribute('alt') || img.getAttribute('src')}`;
+    ph.title = t('remoteImageBlocked');
+    img.replaceWith(ph);
+  });
+}
+
+// ---------- tables: collapse unchanged rows + align split columns ----------
 function collapseTableRows() {
   if (!data?.prefs.collapse) return;
   content.querySelectorAll<HTMLTableSectionElement>('section.k-mod tbody').forEach((tb) => {
@@ -162,7 +193,7 @@ function collapseTableRows() {
       run.forEach((r) => r.classList.add('row-hidden'));
       const gap = document.createElement('tr');
       gap.className = 'row-gap';
-      gap.innerHTML = `<td colspan="${cols}">⋯ ${run.length} dòng không đổi — bấm để mở</td>`;
+      gap.innerHTML = `<td colspan="${cols}">${esc(run.length === 1 ? t('unchangedRow') : t('unchangedRows', run.length))}</td>`;
       tb.insertBefore(gap, rows[i]);
       (gap as any)._run = run;
       i = j;
@@ -170,7 +201,7 @@ function collapseTableRows() {
   });
 }
 
-/** 2 cột: mỗi cặp hàng bảng trái/phải lấy chiều cao lớn hơn để luôn thẳng hàng. */
+/** Split view: each left/right table row pair takes the taller height so both sides stay aligned. */
 function syncSplitRows() {
   content.querySelectorAll<HTMLElement>('.split').forEach((sp) => {
     const L = sp.querySelector<HTMLElement>(':scope > .L'), R = sp.querySelector<HTMLElement>(':scope > .R');
@@ -194,11 +225,11 @@ function afterLayout() {
   drawRuler();
 }
 
-// ---------- mục lục (gửi sang thanh bên) ----------
+// ---------- outline (sent to the sidebar) ----------
 let sections: { i: number; level: number; text: string; n: number }[] = [];
 function postOutline() {
   if (!data) return;
-  sections = [{ i: -1, level: 1, text: '(đầu file)', n: 0 }];
+  sections = [{ i: -1, level: 1, text: `(${t('topOfFile')})`, n: 0 }];
   data.segments.forEach((s, i) => {
     if (s.heading && s.kind !== 'moveSrc') sections.push({ i, level: s.heading.level, text: s.heading.text, n: 0 });
     if (isChange(s)) sections[sections.length - 1].n++;
@@ -206,7 +237,7 @@ function postOutline() {
   vscode.postMessage({ type: 'outline', items: sections.filter((x) => x.n > 0) });
 }
 
-/** Mở nhóm thu gọn chứa phần tử (nếu có). */
+/** Expand the collapsed group containing the element, if any. */
 function reveal(el: Element | null) {
   const body = el?.closest<HTMLElement>('.gapbody[hidden]');
   if (body) toggleGap(Number(body.dataset.g), true);
@@ -219,7 +250,8 @@ function toggleGap(g: number, open?: boolean) {
   if (body) body.hidden = !want;
   if (gap) {
     gap.classList.toggle('open', want);
-    gap.textContent = gap.textContent!.replace(/ — bấm để (mở|thu gọn)$/, want ? ' — bấm để thu gọn' : ' — bấm để mở');
+    const hint = gap.querySelector('.gap-hint');
+    if (hint) hint.textContent = want ? t('clickToCollapse') : t('clickToExpand');
   }
   observeMermaid();
   requestAnimationFrame(afterLayout);
@@ -236,7 +268,7 @@ window.addEventListener('scroll', () => {
   window.clearTimeout(scrollTimer);
   scrollTimer = window.setTimeout(() => {
     if (!data || document.hidden || window.innerHeight < 80) return;
-    try { vscode.setState({ key: data.key, y: window.scrollY }); } catch { /* bỏ qua */ }
+    try { vscode.setState({ key: data.key, y: window.scrollY }); } catch { /* ignore */ }
     let curSec = -1;
     for (const x of sections) {
       if (x.i < 0) continue;
@@ -248,14 +280,15 @@ window.addEventListener('scroll', () => {
   }, 150);
 });
 
-// ---------- điều hướng thay đổi ----------
+// ---------- change navigation ----------
 function updateCounter() {
   const n = changeEls.length;
   const nSeen = changeEls.filter((e) => e.classList.contains('seen')).length;
   const pct = n ? Math.round((nSeen / n) * 100) : 0;
-  $('cur').innerHTML = !n ? '<span class="muted">không có thay đổi</span>'
+  const seenTip = esc(t('seenOf', nSeen, n));
+  $('cur').innerHTML = !n ? `<span class="muted">${esc(t('noChanges'))}</span>`
     : `<span class="pos"><b>${cur >= 0 ? cur + 1 : '–'}</b><span class="muted">/${n}</span></span>` +
-      `<span class="prog${nSeen === n ? ' done' : ''}" title="Đã xem ${nSeen}/${n} thay đổi"><i style="width:${pct}%"></i></span><span class="muted" title="Đã xem ${nSeen}/${n} thay đổi">đã xem ${nSeen}</span>`;
+      `<span class="prog${nSeen === n ? ' done' : ''}" title="${seenTip}"><i style="width:${pct}%"></i></span><span class="muted" title="${seenTip}">${esc(t('seenCount', nSeen))}</span>`;
 }
 
 function drawRuler() {
@@ -270,7 +303,7 @@ function drawRuler() {
 
 function go(dir: number) {
   if (!changeEls.length) return;
-  // ưu tiên thay đổi chưa xem
+  // prefer changes not seen yet
   let k = cur;
   for (let step = 0; step < changeEls.length; step++) {
     k = (k + dir + changeEls.length) % changeEls.length;
@@ -307,17 +340,17 @@ const setPrefs = (p: Partial<Prefs>) => {
   render(false);
 };
 
-// ---------- blame khi rê chuột ----------
+// ---------- blame on hover ----------
 const blameCache = new Map<string, any>();
 let hoverTimer: number | undefined;
 let pendingTip: HTMLElement | undefined;
 function showTip(el: HTMLElement, b: any) {
   if (!b) { tip.style.display = 'none'; return; }
   const uncommitted = /^0+$/.test(b.sha);
-  const when = b.time ? new Date(b.time * 1000).toLocaleString('vi-VN') : '';
+  const when = b.time ? new Date(b.time * 1000).toLocaleString(lang) : '';
   tip.innerHTML = uncommitted
-    ? '<b>Chưa commit</b>'
-    : `<b>${esc(b.author)}</b> · ${when}<br>${esc(b.summary)}<br><span class="muted">${b.sha.slice(0, 8)}${b.commits > 1 ? ` · đoạn này có ${b.commits} commit, đây là commit mới nhất` : ''}</span>`;
+    ? `<b>${esc(t('uncommitted'))}</b>`
+    : `<b>${esc(b.author)}</b> · ${when}<br>${esc(b.summary)}<br><span class="muted">${b.sha.slice(0, 8)}${b.commits > 1 ? ` · ${esc(t('blameMore', b.commits))}` : ''}</span>`;
   const r = el.getBoundingClientRect();
   tip.style.display = 'block';
   tip.style.top = `${Math.max(r.top, 50)}px`;
@@ -338,15 +371,15 @@ content.addEventListener('mouseover', (e) => {
 });
 content.addEventListener('mouseleave', () => { window.clearTimeout(hoverTimer); tip.style.display = 'none'; });
 
-// ---------- link trong tài liệu ----------
-// slug giống Markdown Preview của VS Code để link #mục-lục hoạt động
+// ---------- links inside the document ----------
+// slugs match VS Code's Markdown Preview so #anchor links work
 const slug = (t: string) => t.trim().toLowerCase().replace(/\s+/g, '-')
   .replace(/[\][!'#$%&()*+,./:;<=>?@\\^{|}~`。，、；：？！…—·ˉ¨‘’“”々～‖∶＂＇｀｜〃〔〕〈〉《》「」『』．〖〗【】（）［］｛｝]/g, '')
   .replace(/^-+/, '').replace(/-+$/, '');
 function assignSlugs() {
   const used = new Map<string, number>();
   content.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6').forEach((h) => {
-    if (h.closest('.L')) return; // 2 cột: chỉ gắn id cho bên mới
+    if (h.closest('.L')) return; // split view: only the new side gets ids
     const base = slug(h.textContent ?? '');
     const n = used.get(base) ?? 0;
     used.set(base, n + 1);
@@ -354,13 +387,13 @@ function assignSlugs() {
   });
 }
 
-// ---------- bảng phím tắt ----------
+// ---------- keyboard shortcut overlay ----------
 const help = $('help');
 const toggleHelp = (v?: boolean) => { help.hidden = !(v ?? help.hidden); };
 $('helpBtn').onclick = () => toggleHelp();
 help.onclick = (e) => { if (e.target === help) toggleHelp(false); };
 
-// ---------- sự kiện ----------
+// ---------- events ----------
 content.addEventListener('click', (e) => {
   const t = e.target as HTMLElement;
   const gap = t.closest<HTMLElement>('.gap');
@@ -368,7 +401,7 @@ content.addEventListener('click', (e) => {
   const rowGap = t.closest<HTMLTableRowElement>('tr.row-gap');
   if (rowGap) {
     const run: HTMLTableRowElement[] = (rowGap as any)._run ?? [];
-    // bảng 2 cột: mở cả hàng tương ứng ở bảng bên kia
+    // split view: also expand the matching rows of the table on the other side
     const sp = rowGap.closest('.split');
     if (sp) {
       const idx = [...rowGap.parentElement!.children].indexOf(rowGap);
@@ -387,6 +420,7 @@ content.addEventListener('click', (e) => {
   if (a && !t.closest('.gutter')) {
     e.preventDefault();
     const href = a.getAttribute('href')!;
+    if (/^\s*(javascript|vbscript|data):/i.test(href)) return;
     if (href.startsWith('#')) {
       const id = decodeURIComponent(href.slice(1));
       const el = document.getElementById(id) ?? document.getElementById(slug(id));
@@ -437,7 +471,7 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('message', (ev) => {
   const m = ev.data;
   if (m.type === 'render') {
-    // lần render đầu sau khi webview được nạp lại -> khôi phục vị trí cuộn đã lưu
+    // first render after the webview was reloaded -> restore the saved scroll position
     const st = !data ? vscode.getState() : undefined;
     const restoreY = st && st.key === m.data.key && !m.resetScroll ? st.y : undefined;
     const reset = m.resetScroll || (data !== undefined && data.key !== m.data.key);

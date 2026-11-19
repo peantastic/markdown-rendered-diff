@@ -2,13 +2,13 @@ import { diffArrays } from 'diff';
 import { isTag, tokenizeHtml } from './tokenize';
 
 export interface InlineResult {
-  unified: string; // bản mới có <ins> + text bị xoá trong <del>
-  old: string; // bản cũ, chỉ đánh <del>
-  new: string; // bản mới, chỉ đánh <ins>
+  unified: string; // new version with <ins> + removed text in <del>
+  old: string; // old version, <del> only
+  new: string; // new version, <ins> only
   changed: boolean;
 }
 
-/** Bọc các đoạn text liên tiếp bằng <ins>/<del>; tag HTML để nguyên ở ngoài để HTML luôn cân bằng. */
+/** Wrap consecutive text runs in <ins>/<del>; HTML tags stay outside so the markup is always balanced. */
 export function wrapText(tokens: string[], tag: 'ins' | 'del'): string {
   let res = '';
   let buf = '';
@@ -44,7 +44,7 @@ export function inlineDiff(oldHtml: string, newHtml: string): InlineResult {
   const b = tokenizeHtml(newHtml);
   const parts = diffArrays(a, b);
 
-  // Gom thành các vùng: [bằng nhau] hoặc [xoá + thêm]; khoảng trắng/dấu câu lẻ nằm giữa 2 thay đổi được gộp vào thay đổi
+  // Group into regions: [equal] or [removed + added]; lone whitespace/punctuation between two changes is merged into the change
   const regions: Region[] = [];
   for (let k = 0; k < parts.length; k++) {
     const p = parts[k];

@@ -1,30 +1,47 @@
-// Sinh trang HTML thử nghiệm webview với dữ liệu diff thật (mock acquireVsCodeApi).
+// Builds a standalone HTML page of the Review webview with a real diff (mocked acquireVsCodeApi),
+// for screenshots with headless Chrome.
+// Usage: npx tsx scripts/harness.ts <oldFile|repo> <newFile|rel> <out.html> [unified|split|all] [dark] [lang] [where]
+//   - two files: diff old -> new
+//   - repo + rel: diff HEAD:rel -> working tree
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { basename, join, resolve } from 'node:path';
 import { diffMarkdown } from '../src/diff/engine';
-const [root, rel, out, mode, dark, scrollTo] = process.argv.slice(2);
-const old = execFileSync('git', ['-C', root, 'show', `HEAD:${rel}`], { maxBuffer: 1 << 28 }).toString();
-const cur = readFileSync(join(root, rel), 'utf8');
+import { pageBody, i18nScript } from '../src/panel/pageHtml';
+import { WEBVIEW_STRINGS, WebviewStrings } from '../src/i18n/webviewStrings';
+
+const [a, b, out, mode = 'unified', dark = '', lang = 'en', where] = process.argv.slice(2);
+let old: string, cur: string, rel: string;
+if (existsSync(a) && statSync(a).isDirectory()) {
+  rel = b;
+  old = execFileSync('git', ['-C', a, 'show', `HEAD:${b}`], { maxBuffer: 1 << 28 }).toString();
+  cur = readFileSync(join(a, b), 'utf8');
+} else {
+  rel = b;
+  old = readFileSync(a, 'utf8');
+  cur = readFileSync(b, 'utf8');
+}
+const strings = { ...WEBVIEW_STRINGS } as WebviewStrings;
+if (lang !== 'en') {
+  const bundle = JSON.parse(readFileSync(`l10n/bundle.l10n.${lang}.json`, 'utf8'));
+  for (const k of Object.keys(strings) as (keyof WebviewStrings)[]) strings[k] = bundle[strings[k]] ?? strings[k];
+}
 const d = diffMarkdown(old, cur);
-const data = { key: rel, where: rel.slice(0, rel.lastIndexOf('/')), title: rel.split('/').pop(), sub: 'Commit gần nhất (HEAD)', working: true, stats: d.stats, segments: d.segments,
-  viewed: false, seen: [d.segments.find(s => s.kind !== 'eq')?.id], pos: '3/21', hasPrev: true, hasNext: true,
-  prefs: { mode: mode === 'split' ? 'split' : 'unified', collapse: mode !== 'all' } };
-const tpl = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${process.cwd()}/media/review.css">
-<style>:root{--vscode-editor-background:${dark ? '#1f1f1f' : '#fff'};--vscode-editor-foreground:${dark ? '#ccc' : '#222'};--vscode-font-family:sans-serif;--vscode-button-background:#0e639c;--vscode-button-foreground:#fff;--vscode-textLink-foreground:#3794ff}</style></head>
+const firstChange = d.segments.find((s) => s.kind !== 'eq');
+const data = {
+  key: rel, where: where ?? 'docs/specs', title: basename(rel), sub: 'HEAD', working: true, stats: d.stats, segments: d.segments,
+  viewed: false, seen: firstChange ? [firstChange.id] : [], pos: '2/5', hasPrev: true, hasNext: true,
+  prefs: { mode: mode === 'split' ? 'split' : 'unified', collapse: mode !== 'all' },
+};
+const cwd = process.cwd();
+const page = `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><link rel="stylesheet" href="${cwd}/media/review.css">
+<style>:root{--vscode-editor-background:${dark ? '#1f1f1f' : '#ffffff'};--vscode-editor-foreground:${dark ? '#cccccc' : '#1f1f1f'};--vscode-font-family:-apple-system,"Segoe UI","Noto Sans","Noto Sans CJK JP",sans-serif;--vscode-font-size:13px;--vscode-button-background:#0e639c;--vscode-button-foreground:#fff;--vscode-textLink-foreground:${dark ? '#4daafc' : '#005fb8'};--vscode-descriptionForeground:${dark ? '#9d9d9d' : '#616161'};--vscode-panel-border:${dark ? '#3c3c3c' : '#e5e5e5'}}</style></head>
 <body class="${dark ? 'vscode-dark' : 'vscode-light'}">
-<header id="bar">
-  <div class="title"><b id="title"></b><span id="pos" class="muted"></span></div>
-  <span id="stats"></span>
-  <span class="spacer"></span>
-  <span class="seg-group"><button id="mUnified" class="icon" title="Xem gộp ( s )"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M5 6h6M5 8.5h6M5 11h4"/></svg></button><button id="mSplit" class="icon" title="Xem 2 cột trước / sau ( s )"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M8 2.5v11M3.8 6h2.4M3.8 8.5h2.4M9.8 6h2.4M9.8 8.5h2.4"/></svg></button></span>
-  <button id="only" class="toggle icon" title="Hiện hết các đoạn không đổi ( c )"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M3 6.5 8 2l5 4.5M3 9.5 8 14l5-4.5"/></svg></button>
-  <span class="nav"><button id="prev" title="Thay đổi trước ( p )">◀</button><span id="cur" class="muted"></span><button id="next" title="Thay đổi sau ( n )">▶</button></span>
-  <button id="helpBtn" title="Phím tắt ( ? )">?</button>
-</header><div id="help" hidden><div class="help-box"></div></div>
-<main id="content"></main><div id="ruler"></div><div id="tip"></div><base id="base" href="./">
-<script>window.acquireVsCodeApi=()=>({postMessage(m){if(m.type==='ready')setTimeout(()=>window.postMessage({type:'render',resetScroll:true,data:DATA}),0)},getState(){},setState(){}});const DATA=${JSON.stringify(data)};</script>
-<script src="${process.cwd()}/media/mermaid.min.js"></script><script src="${process.cwd()}/dist/webview.js"></script>
-<script>setTimeout(()=>{const t=${JSON.stringify(scrollTo || '')};if(!t)return;const el=[...document.querySelectorAll('section.seg')].find(x=>x.textContent.includes(t));if(el)window.scrollTo(0,el.offsetTop-60)},300)</script></body></html>`;
-writeFileSync(out, tpl);
+${pageBody(strings)}
+${i18nScript(lang, strings)}
+<base id="base" href="${resolve(rel, '..')}/">
+<script>window.acquireVsCodeApi=()=>({postMessage(m){if(m.type==='ready')setTimeout(()=>window.postMessage({type:'render',resetScroll:true,data:DATA}),0)},getState(){},setState(){}});const DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};</script>
+<script src="${cwd}/media/mermaid.min.js"></script><script src="${cwd}/dist/webview.js"></script>
+</body></html>`;
+writeFileSync(out, page);
 console.log(JSON.stringify(d.stats));

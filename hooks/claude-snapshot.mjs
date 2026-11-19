@@ -1,13 +1,15 @@
 #!/usr/bin/env node
-// Hook Claude Code (cấp user): lưu bản trước khi Claude sửa file .md, theo từng lượt hỏi.
-//   UserPromptSubmit           -> bắt đầu lượt mới
-//   PreToolUse Edit|Write|...  -> nếu file .md chưa có snapshot trong lượt này thì lưu nội dung hiện tại
-// Không bao giờ chặn Claude: mọi lỗi đều bị bỏ qua, luôn thoát mã 0, không in gì ra stdout.
+// Claude Code hook (user level) installed by Markdown Rendered Diff.
+// Saves a copy of a Markdown file right before Claude edits it, once per prompt turn.
+//   UserPromptSubmit           -> start a new turn
+//   PreToolUse Edit|Write|...  -> if this .md file has no snapshot in the current turn yet, save its current content
+// Usage: node claude-snapshot.mjs <data-dir>
+// Never blocks Claude: every error is ignored, always exits 0 and prints nothing.
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 
-const DIR = join(homedir(), '.cache', 'md-review', 'claude');
+const DIR = process.argv[2] || join(homedir(), '.cache', 'markdown-rendered-diff', 'claude');
 const KEEP = 50;
 
 try {
@@ -24,7 +26,7 @@ try {
 
   if (input.hook_event_name === 'UserPromptSubmit') {
     newTurn();
-    // dọn bớt lượt cũ
+    // prune old turns
     const turns = readdirSync(join(DIR, 'turns')).sort();
     for (const t of turns.slice(0, Math.max(0, turns.length - KEEP))) rmSync(join(DIR, 'turns', t), { recursive: true, force: true });
   } else if (input.hook_event_name === 'PreToolUse') {
@@ -49,6 +51,6 @@ try {
     }
   }
 } catch {
-  /* bỏ qua */
+  /* ignore */
 }
 process.exit(0);

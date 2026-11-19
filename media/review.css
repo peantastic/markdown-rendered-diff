@@ -31,7 +31,7 @@ button.link { border: none; background: none; color: var(--vscode-textLink-foreg
 label { font-size: 12px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
 .muted { color: var(--muted); }
 
-/* ---------- thanh công cụ: 1 hàng ---------- */
+/* ---------- toolbar: single row ---------- */
 #bar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 10; height: var(--bar-h);
   background: var(--bar-bg); border-bottom: 1px solid var(--border); padding: 0 14px 0 12px;
@@ -39,7 +39,7 @@ label { font-size: 12px; display: inline-flex; align-items: center; gap: 4px; cu
 }
 #bar .title { display: flex; align-items: center; gap: 8px; min-width: 0; flex-shrink: 1; font-size: 12px; cursor: default; }
 #bar .title #pos { order: -1; flex: none; margin: 0; }
-/* đường dẫn dài: cắt ở bên trái để luôn thấy phần cuối */
+/* long paths are truncated on the left so the end stays visible */
 #bar .title b { font-weight: 400; color: var(--muted); min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; direction: rtl; text-align: left; }
 #bar .title b bdi { direction: ltr; }
 #bar .title #pos { margin-left: 6px; font-size: 12px; }
@@ -58,7 +58,7 @@ button.toggle.on { background: var(--vscode-button-background); color: var(--vsc
 .p-mod { color: var(--mod-fg); background: rgba(210, 153, 34, .15); }
 .p-move { color: var(--move-fg); background: rgba(68, 147, 248, .15); }
 
-/* ---------- khung nội dung: dùng hết chiều ngang ---------- */
+/* ---------- content area: full width ---------- */
 #content { padding: calc(var(--bar-h) + 10px) 22px 120px 34px; }
 #ruler { position: fixed; top: var(--bar-h); right: 0; bottom: 0; width: 10px; z-index: 5; cursor: pointer; border-left: 1px solid var(--border); }
 #ruler i { position: absolute; left: 1px; right: 1px; min-height: 3px; }
@@ -68,7 +68,7 @@ button.toggle.on { background: var(--vscode-button-background); color: var(--vsc
 #ruler i.seen { opacity: .3; }
 .banner { padding: 6px 12px; margin-bottom: 12px; border: 1px dashed var(--border); border-radius: 4px; color: var(--muted); }
 
-/* ---------- từng đoạn ---------- */
+/* ---------- blocks ---------- */
 section.seg { position: relative; padding: 0 12px; border-left: 3px solid transparent; margin: 2px 0; }
 section.seg > .body > :first-child { margin-top: 4px; }
 section.seg > .body > :last-child { margin-bottom: 4px; }
@@ -94,13 +94,13 @@ section.seen .g-seen { background: var(--vscode-button-background); color: var(-
 ins { background: var(--ins-bg); text-decoration: none; border-radius: 2px; }
 del { background: var(--del-bg); text-decoration: line-through; text-decoration-color: var(--del-fg); border-radius: 2px; }
 
-/* 2 cột */
+/* split view */
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .split > div { min-width: 0; overflow-x: auto; }
 .split .empty { background: repeating-linear-gradient(-45deg, transparent 0 6px, rgba(128,128,128,.07) 6px 12px); border-radius: 4px; }
 .split-head { position: sticky; top: var(--bar-h); z-index: 4; background: var(--vscode-editor-background); font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; padding: 4px 15px; border-bottom: 1px solid var(--border); }
 
-/* ---------- nội dung markdown ---------- */
+/* ---------- markdown content ---------- */
 h1, h2 { border-bottom: 1px solid var(--border); padding-bottom: .3em; }
 a { color: var(--vscode-textLink-foreground); }
 code { font-family: var(--vscode-editor-font-family); font-size: 90%; background: var(--code-bg); padding: .1em .35em; border-radius: 3px; }
@@ -140,7 +140,7 @@ details.mm-code summary { cursor: pointer; font-size: 12px; color: var(--muted);
   border: 1px solid var(--vscode-editorHoverWidget-border, var(--border)); border-radius: 4px; pointer-events: none;
 }
 
-/* ---------- thu gọn phần không đổi ---------- */
+/* ---------- collapsed unchanged blocks ---------- */
 .gap {
   margin: 6px 0; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
   border: 1px dashed var(--border); border-radius: 4px; background: rgba(128, 128, 128, .05);
@@ -154,11 +154,11 @@ tr.row-gap td {
 }
 tr.row-gap td:hover { color: var(--vscode-textLink-foreground); }
 tr.row-ph td { background: repeating-linear-gradient(-45deg, transparent 0 6px, rgba(128,128,128,.08) 6px 12px); }
-/* 2 cột: đoạn không đổi hiện 1 lần trải ngang */
+/* split view: unchanged blocks shown once across both columns */
 .same { opacity: .78; }
 body.split-mode section.k-eq { padding-left: 12px; }
 
-/* ---------- bảng phím tắt ---------- */
+/* ---------- keyboard shortcut overlay ---------- */
 #helpBtn { min-width: 24px; font-weight: 600; }
 #help { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, .35); display: flex; align-items: flex-start; justify-content: flex-end; padding: 44px 16px; }
 #help[hidden] { display: none; }
@@ -172,12 +172,19 @@ body.split-mode section.k-eq { padding-left: 12px; }
 .help-box .muted { font-size: 12px; }
 kbd { font-family: var(--vscode-editor-font-family); font-size: 11px; padding: 0 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 3px; }
 
-/* nút dạng icon */
+/* icon buttons */
 button.icon { display: inline-flex; align-items: center; justify-content: center; padding: 2px 6px; line-height: 0; }
 button.icon svg { display: block; }
-/* số trong bộ đếm */
+/* change counter */
 #cur { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; }
 #cur .pos b { font-weight: 600; color: var(--vscode-editor-foreground); }
 #cur .prog { display: inline-block; width: 46px; height: 4px; border-radius: 2px; background: rgba(128, 128, 128, .3); overflow: hidden; }
 #cur .prog i { display: block; height: 100%; background: var(--vscode-textLink-foreground); }
 #cur .prog.done i { background: var(--ins-fg); }
+
+/* remote image blocked by default */
+.img-blocked {
+  display: inline-block; padding: 2px 8px; border: 1px dashed var(--vscode-panel-border, #8884);
+  border-radius: 3px; color: var(--vscode-descriptionForeground); font-size: 12px;
+}
+.gap .gap-hint { opacity: .75; }

@@ -1,3 +1,4 @@
+// Times diffMarkdown on every changed Markdown file of a repository. Usage: npx tsx scripts/bench.ts <repo>
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

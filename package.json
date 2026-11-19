@@ -1,118 +1,143 @@
 {
-  "name": "md-review",
-  "displayName": "MD Review",
-  "description": "Review thay đổi Markdown ở dạng đã render (cá nhân)",
-  "version": "0.4.3",
-  "publisher": "local",
-  "private": true,
-  "license": "UNLICENSED",
+  "name": "markdown-rendered-diff",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.5.0",
+  "preview": true,
+  "publisher": "todo-publisher",
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1e1e2e",
+    "theme": "dark"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TODO-OWNER/markdown-rendered-diff.git"
+  },
+  "homepage": "https://github.com/TODO-OWNER/markdown-rendered-diff#readme",
+  "bugs": {
+    "url": "https://github.com/TODO-OWNER/markdown-rendered-diff/issues"
+  },
+  "keywords": [
+    "markdown",
+    "diff",
+    "rendered diff",
+    "preview",
+    "review",
+    "git",
+    "table",
+    "mermaid",
+    "documentation",
+    "pull request"
+  ],
+  "categories": [
+    "Visualization",
+    "SCM Providers",
+    "Other"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
   "main": "./dist/extension.js",
-  "scripts": {
-    "build": "node build.mjs",
-    "watch": "node build.mjs --watch",
-    "test": "vitest run",
-    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository --skip-license -o md-review.vsix"
-  },
-  "devDependencies": {
-    "@types/node": "^22.20.5",
-    "@types/vscode": "^1.90.0",
-    "@vscode/vsce": "^4.1.1",
-    "esbuild": "^0.28.2",
-    "typescript": "^7.0.2",
-    "vitest": "^5.1.1"
-  },
-  "dependencies": {
-    "diff": "^9.0.0",
-    "markdown-it": "^15.0.3",
-    "mermaid": "^12.3.0"
-  },
-  "categories": [
-    "Other"
-  ],
+  "l10n": "./l10n",
   "activationEvents": [
-    "onStartupFinished"
+    "workspaceContains:**/*.md",
+    "workspaceContains:**/*.markdown"
   ],
   "extensionDependencies": [
     "vscode.git"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%untrusted%"
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "%virtual%"
+    }
+  },
   "contributes": {
     "commands": [
       {
         "command": "mdReview.open",
-        "title": "Mở diff dạng preview",
-        "category": "MD Review",
+        "title": "%cmd.open%",
+        "category": "%category%",
         "icon": "$(diff)"
       },
       {
         "command": "mdReview.pickBaseline",
-        "title": "Đổi mốc so sánh…",
-        "category": "MD Review",
+        "title": "%cmd.pickBaseline%",
+        "category": "%category%",
         "icon": "$(git-compare)"
       },
       {
         "command": "mdReview.refresh",
-        "title": "Làm mới",
-        "category": "MD Review",
+        "title": "%cmd.refresh%",
+        "category": "%category%",
         "icon": "$(refresh)"
       },
       {
         "command": "mdReview.nextFile",
-        "title": "File thay đổi tiếp theo",
-        "category": "MD Review",
+        "title": "%cmd.nextFile%",
+        "category": "%category%",
         "icon": "$(arrow-down)"
       },
       {
         "command": "mdReview.prevFile",
-        "title": "File thay đổi trước",
-        "category": "MD Review",
+        "title": "%cmd.prevFile%",
+        "category": "%category%",
         "icon": "$(arrow-up)"
       },
       {
         "command": "mdReview.toggleViewed",
-        "title": "Đánh dấu / bỏ đánh dấu đã xem file đang review",
-        "category": "MD Review"
+        "title": "%cmd.toggleViewed%",
+        "category": "%category%"
       },
       {
         "command": "mdReview.installClaudeHook",
-        "title": "Cài hook Claude Code (theo dõi lượt Claude sửa)",
-        "category": "MD Review"
+        "title": "%cmd.installClaudeHook%",
+        "category": "%category%"
+      },
+      {
+        "command": "mdReview.uninstallClaudeHook",
+        "title": "%cmd.uninstallClaudeHook%",
+        "category": "%category%"
       },
       {
         "command": "mdReview.openFile",
-        "title": "Mở",
-        "category": "MD Review"
+        "title": "%cmd.openFile%",
+        "category": "%category%"
       },
       {
         "command": "mdReview.openCommit",
-        "title": "Xem commit",
-        "category": "MD Review"
+        "title": "%cmd.openCommit%",
+        "category": "%category%"
       },
       {
         "command": "mdReview.viewAsTree",
-        "title": "Xem dạng cây thư mục",
-        "category": "MD Review",
+        "title": "%cmd.viewAsTree%",
+        "category": "%category%",
         "icon": "$(list-tree)"
       },
       {
         "command": "mdReview.viewAsList",
-        "title": "Xem dạng danh sách",
-        "category": "MD Review",
+        "title": "%cmd.viewAsList%",
+        "category": "%category%",
         "icon": "$(list-flat)"
       },
       {
         "command": "mdReview.scrollToSection",
-        "title": "Tới mục",
-        "category": "MD Review"
+        "title": "%cmd.scrollToSection%",
+        "category": "%category%"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "mdReview",
-          "title": "MD Review",
+          "title": "%container%",
           "icon": "media/icon.svg"
         }
       ]
@@ -121,15 +146,15 @@
       "mdReview": [
         {
           "id": "mdReview.changes",
-          "name": "File thay đổi"
+          "name": "%view.changes%"
         },
         {
           "id": "mdReview.outline",
-          "name": "Mục lục thay đổi"
+          "name": "%view.outline%"
         },
         {
           "id": "mdReview.history",
-          "name": "Lịch sử file"
+          "name": "%view.history%"
         }
       ]
     },
@@ -214,7 +239,7 @@
       }
     ],
     "configuration": {
-      "title": "MD Review",
+      "title": "%displayName%",
       "properties": {
         "mdReview.defaultBaseline": {
           "type": "string",
@@ -226,14 +251,65 @@
             "index"
           ],
           "default": "head",
-          "description": "Mốc so sánh mặc định (đổi nhanh bằng nút ở thanh bên)."
+          "description": "%cfg.defaultBaseline%",
+          "enumDescriptions": [
+            "%cfg.b.head%",
+            "%cfg.b.reviewed%",
+            "%cfg.b.claude%",
+            "%cfg.b.mergeBase%",
+            "%cfg.b.index%"
+          ]
         },
         "mdReview.mrBaseBranch": {
           "type": "string",
-          "default": "docs/detail_design",
-          "description": "Branch đích của MR, dùng cho mốc \"Như trên MR\"."
+          "default": "",
+          "description": "%cfg.mrBaseBranch%"
+        },
+        "mdReview.renderHtml": {
+          "type": "boolean",
+          "default": true,
+          "description": "%cfg.renderHtml%"
+        },
+        "mdReview.allowRemoteImages": {
+          "type": "boolean",
+          "default": false,
+          "description": "%cfg.allowRemoteImages%"
         }
       }
-    }
+    },
+    "viewsWelcome": [
+      {
+        "view": "mdReview.changes",
+        "contents": "%welcome.untrusted%",
+        "when": "!mdReview.trusted"
+      },
+      {
+        "view": "mdReview.changes",
+        "contents": "%welcome.noRepo%",
+        "when": "mdReview.trusted && !mdReview.hasRepo"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "package": "npm run build && vsce package --no-dependencies -o markdown-rendered-diff.vsix",
+    "publish:vsce": "vsce publish --no-dependencies --packagePath markdown-rendered-diff.vsix",
+    "publish:ovsx": "npx ovsx publish markdown-rendered-diff.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^4.1.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "diff": "^9.0.0",
+    "markdown-it": "^15.0.3",
+    "mermaid": "^12.3.0"
   }
 }

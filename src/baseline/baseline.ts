@@ -1,12 +1,32 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
-import { changedVsIndex, changedVsRev, mergeBase, show } from '../git/git';
+import { changedVsIndex, changedVsRev, defaultBranch, mergeBase, show } from '../git/git';
+import { format } from '../i18n/webviewStrings';
 
 export type BaselineKind = 'head' | 'index' | 'mergeBase' | 'rev' | 'reviewed' | 'claude';
 export interface Baseline { kind: BaselineKind; rev?: string }
 
-export const CLAUDE_DIR = join(homedir(), '.cache', 'md-review', 'claude');
+/** Per-user cache folder where the Claude Code hook stores pre-edit snapshots (passed to the hook as an argument). */
+export function claudeDataDir(): string {
+  const app = 'markdown-rendered-diff';
+  if (process.platform === 'win32') return join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), app, 'claude');
+  if (process.platform === 'darwin') return join(homedir(), 'Library', 'Caches', app, 'claude');
+  return join(process.env.XDG_CACHE_HOME || join(homedir(), '.cache'), app, 'claude');
+}
+
+/** Case-insensitive on Windows, separator-agnostic path prefix check; returns the repo-relative path with '/' or undefined. */
+export function relInside(root: string, abs: string): string | undefined {
+  const norm = (p: string) => {
+    const x = p.replace(/[\\/]+/g, '/').replace(/\/$/, '');
+    return process.platform === 'win32' ? x.toLowerCase() : x;
+  };
+  const r = norm(root) + '/', a = norm(abs);
+  if (!a.startsWith(r)) return undefined;
+  return abs.replace(/[\\/]+/g, '/').slice(r.length);
+}
+
+export type Translate = (message: string, ...args: (string | number)[]) => string;
 
 export function hash(s: string): string {
   let h = 0x811c9dc5;
@@ -22,9 +42,23 @@ export function readText(p: string): string {
 }
 
 export class Baselines {
-  constructor(private storage: string, private mrBranch: () => string) {}
+  constructor(
+    private storage: string,
+    /** Configured PR/MR target branch ('' = detect per repository). */
+    private mrBranch: () => string,
+    private t: Translate = (m, ...a) => format(m, ...a),
+  ) {}
 
-  // ---------- snapshot "đã review" ----------
+  private branchCache = new Map<string, string | undefined>();
+  private async targetBranch(root: string): Promise<string | undefined> {
+    const configured = this.mrBranch();
+    if (configured) return configured;
+    if (!this.branchCache.has(root)) this.branchCache.set(root, await defaultBranch(root));
+    return this.branchCache.get(root);
+  }
+  clearCache() { this.branchCache.clear(); }
+
+  // ---------- "reviewed" snapshots ----------
   private snapPath(root: string, rel: string) {
     return join(this.storage, 'snapshots', hash(root), rel);
   }
@@ -52,9 +86,9 @@ export class Baselines {
     return out;
   }
 
-  // ---------- lượt Claude gần nhất ----------
+  // ---------- latest Claude Code turn ----------
   latestClaudeTurn(): { dir: string; index: Record<string, { snap: string | null }>; time: number } | undefined {
-    const turns = join(CLAUDE_DIR, 'turns');
+    const turns = join(claudeDataDir(), 'turns');
     if (!existsSync(turns)) return undefined;
     let best: { dir: string; time: number } | undefined;
     for (const name of readdirSync(turns)) {
@@ -64,25 +98,32 @@ export class Baselines {
       if (!best || t > best.time) best = { dir: join(turns, name), time: t };
     }
     if (!best) return undefined;
-    return { ...best, index: JSON.parse(readText(join(best.dir, 'index.json')) || '{}') };
+    try {
+      return { ...best, index: JSON.parse(readText(join(best.dir, 'index.json')) || '{}') };
+    } catch { return undefined; }
   }
 
-  // ---------- API chung ----------
+  // ---------- public API ----------
   label(b: Baseline): string {
     switch (b.kind) {
-      case 'head': return 'Commit gần nhất (HEAD)';
-      case 'index': return 'Phần chưa stage';
-      case 'mergeBase': return `Như trên MR (so với ${this.mrBranch()})`;
-      case 'rev': return `Commit/branch ${b.rev}`;
-      case 'reviewed': return 'Từ lần review trước';
-      case 'claude': return 'Lượt Claude sửa gần nhất';
+      case 'head': return this.t('Last commit (HEAD)');
+      case 'index': return this.t('Unstaged changes');
+      case 'mergeBase': return this.mrBranch()
+        ? this.t('As in the PR/MR (vs {0})', this.mrBranch())
+        : this.t('As in the PR/MR (vs default branch)');
+      case 'rev': return this.t('Commit/branch {0}', b.rev ?? '');
+      case 'reviewed': return this.t('Since your last review');
+      case 'claude': return this.t('Latest Claude Code turn');
     }
   }
 
   private async revFor(root: string, b: Baseline): Promise<string | undefined> {
     if (b.kind === 'head' || b.kind === 'reviewed') return 'HEAD';
     if (b.kind === 'rev') return b.rev;
-    if (b.kind === 'mergeBase') return mergeBase(root, this.mrBranch());
+    if (b.kind === 'mergeBase') {
+      const branch = await this.targetBranch(root);
+      return branch ? mergeBase(root, branch) : undefined;
+    }
     return undefined;
   }
 
@@ -92,8 +133,8 @@ export class Baselines {
       const t = this.latestClaudeTurn();
       if (!t) return [];
       return Object.keys(t.index)
-        .filter((abs) => abs.startsWith(root + '/'))
-        .map((abs) => abs.slice(root.length + 1))
+        .map((abs) => relInside(root, abs))
+        .filter((rel): rel is string => rel !== undefined)
         .filter((rel) => this.claudeOld(root, rel, t) !== readText(join(root, rel)))
         .sort();
     }
@@ -108,7 +149,9 @@ export class Baselines {
   }
 
   private claudeOld(root: string, rel: string, t = this.latestClaudeTurn()): string {
-    const e = t?.index[join(root, rel)];
+    if (!t) return '';
+    const key = Object.keys(t.index).find((abs) => relInside(root, abs) === rel);
+    const e = key ? t.index[key] : undefined;
     return e?.snap ? readText(join(t!.dir, e.snap)) : '';
   }
 

@@ -1,3 +1,5 @@
+// Sanity check on a real repository: removed text must never leak into the wrong table cell.
+// Usage: npx tsx scripts/check-tables.ts <repo>
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -14,7 +16,7 @@ for (const f of files) {
     rowsAdd += (s.unified.match(/class="row-add"/g) ?? []).length;
     rowsDel += (s.unified.match(/class="row-del"/g) ?? []).length;
     cellsMod += (s.unified.match(/data-chg="mod"/g) ?? []).length;
-    // mỗi ô có <del> phải thuộc hàng row-del hoặc là ô data-chg
+    // every cell containing <del> must be in a row-del row or be a data-chg cell
     for (const cell of s.unified.split(/(?=<t[dh]\b)/)) {
       if (!cell.includes('<del>')) continue;
       if (/^<t[dh][^>]*data-chg=/.test(cell)) continue;

@@ -1,4 +1,4 @@
-// Tách HTML thành token: tag, entity, và từ (theo Intl.Segmenter để tiếng Nhật không bị gộp cả cụm).
+// Split HTML into tokens: tags, entities and words (Intl.Segmenter, so CJK text is not lumped into one token).
 const segmenter = new Intl.Segmenter('ja', { granularity: 'word' });
 const TAG_OR_ENTITY = /(<[^>]+>|&#?\w+;)/;
 
@@ -19,7 +19,7 @@ export function tokenizeHtml(html: string): string[] {
   return out;
 }
 
-/** Bỏ tag, giải mã vài entity thường gặp — dùng làm khoá so sánh. */
+/** Strip tags and decode common entities — used as comparison key. */
 export function textOf(html: string): string {
   return html
     .replace(/<[^>]+>/g, '')
@@ -27,7 +27,7 @@ export function textOf(html: string): string {
     .trim();
 }
 
-/** Độ giống nhau 0..1 (Dice trên bigram ký tự) — nhanh, đủ dùng để ghép cặp block/hàng. */
+/** Similarity 0..1 (Dice coefficient on character bigrams) — fast enough to pair blocks/rows. */
 export function similarity(a: string, b: string): number {
   if (a === b) return 1;
   if (a.length < 2 || b.length < 2) return 0;

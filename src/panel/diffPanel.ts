@@ -3,15 +3,17 @@ import { join } from 'node:path';
 import { diffMarkdown, DiffResult } from '../diff/engine';
 import { blameRange } from '../git/git';
 import { hash } from '../baseline/baseline';
+import { WEBVIEW_STRINGS, WebviewStringKey, WebviewStrings } from '../i18n/webviewStrings';
+import { i18nScript, pageBody } from './pageHtml';
 import type { ReviewState } from '../state/reviewState';
 
 export interface DiffRequest {
   root: string;
   rel: string;
   title: string;
-  sub: string; // mô tả mốc so sánh
-  working: boolean; // bên mới là file đang sửa (tự cập nhật + đánh dấu đã xem được)
-  blameRev?: string; // blame bên mới tại commit này (lịch sử)
+  sub: string; // baseline description
+  working: boolean; // new side is the working file (live updates, can be marked viewed)
+  blameRev?: string; // blame the new side at this commit (history view)
   load: () => Promise<{ old: string; new: string }>;
 }
 
@@ -22,16 +24,19 @@ export interface PanelHost {
   setViewed(root: string, rel: string, content: string, value: boolean): void;
   onOutline(items: OutlineItem[]): void;
   onSection(i: number): void;
+  /** false in untrusted workspaces or when mdReview.renderHtml is off */
+  renderHtml(): boolean;
+  allowRemoteImages(): boolean;
 }
 
 export interface OutlineItem { i: number; level: number; text: string; n: number }
 
 const cache = new Map<string, DiffResult>();
-export function cachedDiff(oldSrc: string, newSrc: string): DiffResult {
-  const k = hash(oldSrc) + ':' + hash(newSrc);
+export function cachedDiff(oldSrc: string, newSrc: string, html = true): DiffResult {
+  const k = hash(oldSrc) + ':' + hash(newSrc) + (html ? '' : ':nohtml');
   let r = cache.get(k);
   if (!r) {
-    r = diffMarkdown(oldSrc, newSrc);
+    r = diffMarkdown(oldSrc, newSrc, { html });
     if (cache.size > 200) cache.clear();
     cache.set(k, r);
   }
@@ -52,7 +57,7 @@ export class DiffPanel {
     const sameFile = this.req && this.req.root === req.root && this.req.rel === req.rel;
     this.req = req;
     if (!this.panel) {
-      this.panel = vscode.window.createWebviewPanel('mdReview.diff', 'MD Review', { viewColumn: vscode.ViewColumn.Active, preserveFocus },
+      this.panel = vscode.window.createWebviewPanel('mdReview.diff', 'Markdown Rendered Diff', { viewColumn: vscode.ViewColumn.Active, preserveFocus },
         {
           enableScripts: true, retainContextWhenHidden: false, enableFindWidget: true,
           localResourceRoots: [this.ctx.extensionUri, vscode.Uri.file(req.root),
@@ -61,10 +66,10 @@ export class DiffPanel {
       this.panel.iconPath = vscode.Uri.joinPath(this.ctx.extensionUri, 'media', 'icon.svg');
       this.panel.onDidDispose(() => { this.panel = undefined; this.ready = false; this.host.onOutline([]); });
       this.panel.webview.onDidReceiveMessage((m) => this.onMessage(m));
-      // Không giữ chạy ngầm khi bị ẩn (vd. khi phóng to panel Terminal): ẩn thì chờ, hiện lại thì webview tự nạp lại và nhận lại dữ liệu
+      // Not retained while hidden (e.g. when the terminal panel is maximized): when shown again the webview reloads and receives the last render
       this.panel.onDidChangeViewState((e) => { if (!e.webviewPanel.visible) this.ready = false; });
     } else this.panel.reveal(undefined, preserveFocus);
-    this.panel.title = `Review: ${req.title}`;
+    this.panel.title = vscode.l10n.t('Review: {0}', req.title);
     if (!this.ready || !sameFile) {
       if (!this.ready) this.panel.webview.html = this.html(req);
       else this.post({ type: 'base', base: this.baseHref(req) });
@@ -77,7 +82,7 @@ export class DiffPanel {
     void this.panel?.webview.postMessage({ type: 'scrollTo', i });
   }
 
-  /** Gọi khi file thay đổi trên đĩa / đổi mốc. */
+  /** Called when the file changes on disk or the baseline changes. */
   async refresh() {
     if (this.panel && this.req) await this.render(false);
   }
@@ -86,7 +91,7 @@ export class DiffPanel {
     const req = this.req!;
     const { old, new: cur } = await req.load();
     this.newContent = cur;
-    const diff = cachedDiff(old, cur);
+    const diff = cachedDiff(old, cur, this.host.renderHtml());
     const nb = this.host.neighbours(req.root, req.rel);
     const key = `${req.root}|${req.rel}`;
     this.post({
@@ -96,7 +101,7 @@ export class DiffPanel {
         key,
         title: req.title,
         sub: req.sub,
-        where: req.working ? (req.rel.includes('/') ? req.rel.slice(0, req.rel.lastIndexOf('/')) : '(thư mục gốc repo)') : req.sub,
+        where: req.working ? (req.rel.includes('/') ? req.rel.slice(0, req.rel.lastIndexOf('/')) : vscode.l10n.t('(repository root)')) : req.sub,
         working: req.working,
         stats: diff.stats,
         segments: diff.segments,
@@ -106,7 +111,8 @@ export class DiffPanel {
         hasPrev: !!nb.prev,
         hasNext: !!nb.next,
         prefs: this.host.state.prefs(),
-        empty: old === '' ? 'Bên cũ không có file này (file mới hoặc chưa có trong mốc so sánh).' : undefined,
+        empty: old === '' ? webviewStrings().notInBaseline : undefined,
+        allowRemoteImages: this.host.allowRemoteImages(),
       },
     });
   }
@@ -115,7 +121,7 @@ export class DiffPanel {
   private post(m: any) {
     if (m?.type === 'render') this.lastRender = m;
     if (this.ready) { void this.panel?.webview.postMessage(m); return; }
-    // chỉ giữ bản render mới nhất trong hàng chờ
+    // keep only the latest render in the queue
     if (m?.type === 'render') this.pending = this.pending.filter((p: any) => p?.type !== 'render');
     this.pending.push(m);
   }
@@ -162,7 +168,11 @@ export class DiffPanel {
       case 'link': {
         if (!req) break;
         const href: string = m.href;
-        if (/^[a-z][\w+.-]*:/i.test(href)) { void vscode.env.openExternal(vscode.Uri.parse(href)); break; }
+        if (/^[a-z][\w+.-]*:/i.test(href)) {
+          // only open web/mail links externally; never command:, file:, vscode: … from document content
+          if (/^(https?|mailto):/i.test(href)) void vscode.env.openExternal(vscode.Uri.parse(href));
+          break;
+        }
         const [path, frag] = decodeURI(href).split('#');
         const target = vscode.Uri.file(join(req.root, req.rel, '..', path));
         if (/\.(md|markdown)$/i.test(path)) void vscode.commands.executeCommand('mdReview.open', target);
@@ -194,38 +204,27 @@ export class DiffPanel {
     const w = this.panel!.webview;
     const u = (...p: string[]) => w.asWebviewUri(vscode.Uri.joinPath(this.ctx.extensionUri, ...p)).toString();
     const nonce = hash(String(Math.random()) + Date.now());
-    return `<!doctype html><html lang="vi"><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${w.cspSource} https: data:; style-src ${w.cspSource} 'unsafe-inline'; font-src ${w.cspSource}; script-src 'nonce-${nonce}' ${w.cspSource};">
+    const remote = this.host.allowRemoteImages() ? ' https:' : '';
+    return `<!doctype html><html lang="${vscode.env.language}"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${w.cspSource} data:${remote}; style-src ${w.cspSource} 'unsafe-inline'; font-src ${w.cspSource}; script-src 'nonce-${nonce}' ${w.cspSource};">
 <base id="base" href="${this.baseHref(req)}">
 <link rel="stylesheet" href="${u('media', 'review.css')}">
 </head><body>
-<header id="bar">
-  <div class="title"><b id="title"></b><span id="pos" class="muted"></span></div>
-  <span id="stats"></span>
-  <span class="spacer"></span>
-  <span class="seg-group"><button id="mUnified" class="icon" title="Xem gộp ( s )"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="2.5" y="2.5" width="11" height="11" rx="1.5"/><path d="M5 6h6M5 8.5h6M5 11h4"/></svg></button><button id="mSplit" class="icon" title="Xem 2 cột trước / sau ( s )"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M8 2.5v11M3.8 6h2.4M3.8 8.5h2.4M9.8 6h2.4M9.8 8.5h2.4"/></svg></button></span>
-  <button id="only" class="toggle icon" title="Hiện hết các đoạn không đổi ( c )"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M3 6.5 8 2l5 4.5M3 9.5 8 14l5-4.5"/></svg></button>
-  <span class="nav"><button id="prev" title="Thay đổi trước ( p )">◀</button><span id="cur" class="muted"></span><button id="next" title="Thay đổi sau ( n )">▶</button></span>
-  <button id="helpBtn" title="Phím tắt ( ? )">?</button>
-</header>
-<div id="help" hidden><div class="help-box">
-  <b>Phím tắt</b>
-  <table>
-    <tr><td><kbd>n</kbd> / <kbd>p</kbd></td><td>Thay đổi kế tiếp / trước (ưu tiên cái chưa xem)</td></tr>
-    <tr><td><kbd>x</kbd></td><td>Đánh dấu đã xem thay đổi đang chọn</td></tr>
-    <tr><td><kbd>s</kbd></td><td>Gộp ↔ 2 cột</td></tr>
-    <tr><td><kbd>c</kbd></td><td>Thu gọn ↔ hiện hết đoạn không đổi</td></tr>
-    <tr><td><kbd>v</kbd></td><td>Đánh dấu đã xem cả file</td></tr>
-    <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>File trước / sau</td></tr>
-    <tr><td><kbd>?</kbd> / <kbd>Esc</kbd></td><td>Mở / đóng bảng này</td></tr>
-  </table>
-  <div class="muted">Rê chuột vào một đoạn ~1 giây để xem ai sửa (blame). Nút ↗ mở dòng nguồn. Mốc so sánh, mục lục, file đã xem nằm ở thanh bên MD Review.</div>
-</div></div>
-<main id="content"></main>
-<div id="ruler"></div>
-<div id="tip"></div>
+${pageBody(webviewStrings())}
+${i18nScript(vscode.env.language, webviewStrings()).replace('<script ', `<script nonce="${nonce}" `)}
 <script nonce="${nonce}" src="${u('media', 'mermaid.min.js')}"></script>
 <script nonce="${nonce}" src="${u('dist', 'webview.js')}"></script>
 </body></html>`;
   }
+}
+
+/** Translate the webview string table with the active VS Code language bundle (English text is the key). */
+function webviewStrings(): WebviewStrings {
+  const bundle = vscode.l10n.bundle ?? {};
+  const out = {} as WebviewStrings;
+  for (const [k, en] of Object.entries(WEBVIEW_STRINGS) as [WebviewStringKey, string][]) {
+    const v = bundle[en];
+    out[k] = typeof v === 'string' ? v : (v as { message?: string } | undefined)?.message ?? en;
+  }
+  return out;
 }

@@ -16,7 +16,7 @@ const balanced = (html: string) => {
 };
 
 describe('inlineDiff', () => {
-  it('đánh dấu đúng từ thay đổi trong câu tiếng Việt', () => {
+  it('marks only the changed words in a Vietnamese sentence', () => {
     const d = inlineDiff('<p>Hệ thống cho phép đặt phòng.</p>', '<p>Hệ thống cho phép đặt và huỷ phòng.</p>');
     expect(d.unified).toContain('<ins>');
     expect(d.unified).not.toContain('<del>');
@@ -24,7 +24,7 @@ describe('inlineDiff', () => {
     expect(balanced(d.unified)).toBe(true);
   });
 
-  it('tiếng Nhật: chỉ tô cụm thay đổi, không tô cả câu', () => {
+  it('Japanese: highlights only the changed phrase, not the whole sentence', () => {
     const d = inlineDiff('<p>担当者承認待ちの書類</p>', '<p>管理職承認待ちの書類</p>');
     expect(d.unified).toMatch(/<del>[^<]*担当者[^<]*<\/del>/);
     expect(d.unified).toMatch(/<ins>[^<]*管理職[^<]*<\/ins>/);
@@ -32,19 +32,25 @@ describe('inlineDiff', () => {
     expect(d.unified).not.toMatch(/<ins>[^<]*書類/);
   });
 
-  it('giữ HTML cân bằng khi thêm định dạng', () => {
+  it('keeps HTML balanced when formatting is added', () => {
     const d = inlineDiff('<p>đặt phòng trong tòa nhà</p>', '<p>đặt phòng trong <strong>toàn bộ</strong> tòa nhà</p>');
     for (const h of [d.unified, d.old, d.new]) expect(balanced(h)).toBe(true);
   });
 });
 
 describe('diffMarkdown', () => {
-  it('file giống nhau -> không có thay đổi', () => {
+  it('raw HTML is escaped when html rendering is off', () => {
+    const r = diffMarkdown('<b>x</b>\n', '<b>y</b>\n', { html: false });
+    expect(r.segments.some((x) => x.unified.includes('&lt;b&gt;'))).toBe(true);
+    expect(r.segments.some((x) => x.unified.includes('<b>'))).toBe(false);
+  });
+
+  it('identical files -> no changes', () => {
     const r = diffMarkdown('# A\n\ntext\n', '# A\n\ntext\n');
     expect(r.stats).toEqual({ add: 0, del: 0, mod: 0, move: 0 });
   });
 
-  it('thêm / xoá / sửa block', () => {
+  it('added / removed / modified blocks', () => {
     const r = diffMarkdown('# T\n\nđoạn một\n\nđoạn bị xoá hoàn toàn khác\n', '# T\n\nđoạn một có sửa\n\n> ghi chú mới\n');
     expect(r.stats.mod).toBe(1);
     expect(r.stats.add + r.stats.del).toBeGreaterThan(0);
@@ -52,7 +58,7 @@ describe('diffMarkdown', () => {
     expect(mod.newLine).toEqual([2, 3]);
   });
 
-  it('bảng: xoá 1 hàng -> nguyên hàng đánh dấu xoá; ô đổi -> chỉ ô đó', () => {
+  it('table: removed row is marked as a whole; changed cell -> only that cell', () => {
     const oldT = '| Phòng | Sức chứa |\n|---|---|\n| A1 | 10 |\n| B2 | 20 |\n| C3 | 30 |\n';
     const newT = '| Phòng | Sức chứa |\n|---|---|\n| A1 | 12 |\n| C3 | 30 |\n';
     const r = diffMarkdown(oldT, newT);
@@ -65,7 +71,7 @@ describe('diffMarkdown', () => {
     expect(balanced(seg.new)).toBe(true);
   });
 
-  it('bảng: thêm cột', () => {
+  it('table: added column', () => {
     const r = diffMarkdown('| A | B |\n|---|---|\n| 1 | 2 |\n', '| A | X | B |\n|---|---|---|\n| 1 | 9 | 2 |\n');
     const seg = r.segments.find((s) => s.kind === 'mod')!;
     expect(seg.unified).toContain('data-chg="add"');
@@ -80,7 +86,7 @@ describe('diffMarkdown', () => {
   const r2 = '<tr><td><code>APPROVE</code></td><td>Phê duyệt phiếu ở 管理職確認待ち</td></tr>';
   const r3 = '<tr><td colspan="2">Ghi chú gộp ô</td></tr>';
 
-  it('bảng HTML: thêm hàng -> nguyên hàng row-add, giữ class/colgroup/colspan', () => {
+  it('HTML table: added row -> row-add, keeps class/colgroup/colspan', () => {
     const r = diffMarkdown(htmlTable([r1, r2, r3]), htmlTable([r1, '<tr><td><code>WITHDRAW</code></td><td>Rút phiếu</td></tr>', r2, r3]));
     const seg = r.segments.find((s) => s.kind === 'mod')!;
     expect(seg.blockType).toBe('table');
@@ -92,18 +98,18 @@ describe('diffMarkdown', () => {
     for (const h of [seg.unified, seg.old, seg.new]) expect(balanced(h)).toBe(true);
   });
 
-  it('bảng HTML: sửa 1 ô -> chỉ ô đó; xoá hàng -> row-del', () => {
+  it('HTML table: one cell edited -> only that cell; removed row -> row-del', () => {
     const r = diffMarkdown(htmlTable([r1, r2, r3]),
       htmlTable([r1.replace('Sửa phiếu', 'Sửa / gửi phiếu'), r3]));
     const seg = r.segments.find((s) => s.kind === 'mod')!;
     expect(seg.unified).toMatch(/<tr class="row-mod"><td><code>EDIT<\/code><\/td><td data-chg="mod">Sửa <ins>[^<]*gửi[^<]*<\/ins>/);
     expect(seg.unified).toContain('<tr class="row-del">');
     expect(seg.unified).toMatch(/row-del"><td><code><del>APPROVE<\/del><\/code><\/td>/);
-    // chữ bị xoá chỉ nằm trong hàng bị xoá
+    // removed text appears only in the removed row
     expect(seg.unified.split('<tr').filter((t) => t.includes('<del>')).every((t) => t.startsWith(' class="row-del"'))).toBe(true);
   });
 
-  it('bảng: hàng không đổi có row-eq; bản 2 cột có cùng số hàng ở 2 bên', () => {
+  it('table: unchanged rows get row-eq; split sides have the same row count', () => {
     const r = diffMarkdown(htmlTable([r1, r2, r3]), htmlTable([r1, '<tr><td>NEW</td><td>x</td></tr>', r3]));
     const seg = r.segments.find((s) => s.kind === 'mod')!;
     expect(seg.unified).toContain('<tr class="row-eq">');
@@ -112,32 +118,32 @@ describe('diffMarkdown', () => {
     expect(seg.old + seg.new).toContain('row-ph');
   });
 
-  it('bảng HTML không đổi -> eq', () => {
+  it('unchanged HTML table -> eq', () => {
     const r = diffMarkdown('# A\n\n' + htmlTable([r1, r2]), '# A\n\n' + htmlTable([r1, r2]));
     expect(r.stats).toEqual({ add: 0, del: 0, mod: 0, move: 0 });
   });
 
-  it('mermaid: sửa sơ đồ -> hiện trước/sau', () => {
+  it('mermaid: edited diagram -> before/after pair', () => {
     const r = diffMarkdown('```mermaid\ngraph TD\nA-->B\n```\n', '```mermaid\ngraph TD\nA-->C\n```\n');
     const seg = r.segments.find((s) => s.kind === 'mod')!;
     expect(seg.unified).toContain('mm-pair');
     expect(seg.unified.match(/mermaid-src/g)!.length).toBe(2);
   });
 
-  it('nhận diện đoạn di chuyển', () => {
+  it('detects moved blocks', () => {
     const p = 'Đây là một đoạn văn khá dài sẽ được di chuyển sang mục khác.';
     const r = diffMarkdown(`# A\n\n${p}\n\n# B\n\nkhác\n`, `# A\n\n# B\n\nkhác\n\n${p}\n`);
     expect(r.stats.move).toBe(1);
-    expect(r.segments.find((s) => s.kind === 'move')!.note).toContain('A');
+    expect(r.segments.find((s) => s.kind === 'move')!.moveFrom).toContain('A');
   });
 
-  it('frontmatter hiện thành khối code, số dòng không đổi', () => {
+  it('front matter becomes a code block, line numbers preserved', () => {
     const r = diffMarkdown('---\nname: a\n---\n\n# T\n', '---\nname: b\n---\n\n# T\n');
     expect(r.segments[0].unified).toContain('<pre>');
     expect(r.segments.find((s) => s.heading)!.newLine).toEqual([4, 5]);
   });
 
-  it('id thay đổi ổn định giữa các lần chạy', () => {
+  it('change ids are stable across runs', () => {
     const a = diffMarkdown('x\n\ny\n', 'x\n\nz\n');
     const b = diffMarkdown('x\n\ny\n', 'x\n\nz\n');
     expect(a.segments.map((s) => s.id)).toEqual(b.segments.map((s) => s.id));

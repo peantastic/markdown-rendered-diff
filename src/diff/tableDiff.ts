@@ -5,7 +5,7 @@ import { similarity, textOf, tokenizeHtml } from './tokenize';
 
 interface Pair { o?: number; n?: number }
 
-/** Căn 2 dãy theo LCS trên khoá; trong vùng thay thế thì ghép cặp bằng hàm match. */
+/** Align two sequences by LCS on keys; inside replaced regions, pair items with `match`. */
 export function align(oldKeys: string[], newKeys: string[], match: (o: number, n: number) => boolean): Pair[] {
   const out: Pair[] = [];
   let oi = 0, ni = 0;
@@ -17,7 +17,7 @@ export function align(oldKeys: string[], newKeys: string[], match: (o: number, n
       for (let x = 0; x < cnt; x++) out.push({ o: oi++, n: ni++ });
       continue;
     }
-    // gom removed + added liền nhau thành 1 vùng thay thế
+    // merge adjacent removed + added parts into one replaced region
     let delN = 0, addN = 0;
     while (k < parts.length && (parts[k].added || parts[k].removed)) {
       const c = parts[k].count ?? parts[k].value.length;
@@ -50,7 +50,7 @@ export interface TableDiffResult {
 }
 
 const insAll = (h: string) => wrapText(tokenizeHtml(h), 'ins');
-const delAll = (h: string) => wrapText(tokenizeHtml(h), 'del'); // giữ tag trong ô -> vẫn cân bằng
+const delAll = (h: string) => wrapText(tokenizeHtml(h), 'del'); // keeps tags inside the cell -> still balanced
 const withChg = (c: Cell, html: string, chg?: string): Cell => ({ ...c, html, attrs: c.attrs + (chg ? ` data-chg="${chg}"` : '') });
 const rowKey = (r: Row) => r.map((c) => textOf(c.html)).join('\u0001');
 const rowRaw = (r: Row) => r.map((c) => c.tag + c.attrs + '\u0002' + c.html).join('\u0001');
@@ -58,7 +58,7 @@ const rowRaw = (r: Row) => r.map((c) => c.tag + c.attrs + '\u0002' + c.html).joi
 interface Out { u: string; o: string; n: string; changed: boolean }
 
 const span = (r: Row) => r.reduce((n, c) => n + (Number(/colspan\s*=\s*"?(\d+)/i.exec(c.attrs)?.[1]) || 1), 0);
-/** Hàng giữ chỗ ở bên không có hàng này — để bảng 2 cột luôn thẳng hàng. */
+/** Placeholder row on the side that lacks this row, so split-view tables stay aligned. */
 const placeholder = (r: Row) => `<tr class="row-ph"><td colspan="${Math.max(span(r), 1)}"></td></tr>`;
 
 function diffRows(A: Row[], B: Row[]): Out {
@@ -75,7 +75,7 @@ function diffRows(A: Row[], B: Row[]): Out {
         res.u += renderRow(rb, 'row-eq'); res.o += renderRow(ra, 'row-eq'); res.n += renderRow(rb, 'row-eq');
         continue;
       }
-      // sửa: so từng ô theo vị trí
+      // modified: compare cells by position
       const u: Cell[] = [], o: Cell[] = [], n: Cell[] = [];
       let any = false;
       for (let i = 0; i < Math.max(ra.length, rb.length); i++) {
@@ -114,7 +114,7 @@ export function tableDiff(a: TableData, b: TableData): TableDiffResult {
   const wrap = (t: TableData, h: string, bd: string, hasHead: boolean) =>
     t.pre + t.open + t.colgroup + (hasHead ? `<thead>${h}</thead>` : '') + `<tbody>${bd}</tbody></table>` + t.post;
   const hasHead = a.head.length + b.head.length > 0;
-  // pre/post (HTML quanh bảng) đổi thì diff chữ
+  // pre/post (HTML around the table): plain text diff
   const pre = inlineDiff(a.pre, b.pre), post = inlineDiff(a.post, b.post);
   const unified = pre.unified + wrap({ ...b, pre: '', post: '' }, head.u, body.u, hasHead) + post.unified;
   return {

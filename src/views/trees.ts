@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { basename, dirname, join } from 'node:path';
+import { join } from 'node:path';
+import { basename, dirname } from 'node:path/posix'; // repo-relative paths always use '/'
 import { existsSync } from 'node:fs';
-import { Baselines, readText } from '../baseline/baseline';
+import { Baselines, hash, readText } from '../baseline/baseline';
 import type { Baseline } from '../baseline/baseline';
 import { Commit, fileHistory } from '../git/git';
 import { cachedDiff } from '../panel/diffPanel';
@@ -13,32 +14,34 @@ interface RepoNode { kind: 'repo'; root: string }
 interface FolderNode { kind: 'folder'; root: string; path: string; label: string }
 type Node = FileNode | RepoNode | FolderNode;
 
-/** Danh sách file .md thay đổi theo mốc so sánh hiện tại (dạng danh sách hoặc cây thư mục). */
 export type FileStatus = 'M' | 'A' | 'D';
-const STATUS: Record<FileStatus, { label: string; color: string }> = {
-  M: { label: 'Đã sửa', color: 'gitDecoration.modifiedResourceForeground' },
-  A: { label: 'File mới', color: 'gitDecoration.addedResourceForeground' },
-  D: { label: 'Đã xoá', color: 'gitDecoration.deletedResourceForeground' },
+const STATUS: Record<FileStatus, { label: () => string; color: string }> = {
+  M: { label: () => vscode.l10n.t('Modified'), color: 'gitDecoration.modifiedResourceForeground' },
+  A: { label: () => vscode.l10n.t('Added'), color: 'gitDecoration.addedResourceForeground' },
+  D: { label: () => vscode.l10n.t('Deleted'), color: 'gitDecoration.deletedResourceForeground' },
 };
-const statusUri = (root: string, rel: string) => vscode.Uri.from({ scheme: 'md-review', path: `${root}/${rel}` });
+// synthetic URI (hash of repo root + '/' + relative path) — works for Windows paths too
+const statusPath = (root: string, rel: string) => `/${hash(root)}/${rel}`;
+const statusUri = (root: string, rel: string) => vscode.Uri.from({ scheme: 'md-review', path: statusPath(root, rel) });
 
-/** Nhãn M/A/D có màu cho file trong cây (chỉ cho file — không lan lên thư mục như decoration của git). */
+/** Coloured M/A/D badge for files in the tree (files only — not propagated to folders like git decorations). */
 export class StatusDecorations implements vscode.FileDecorationProvider {
   private emitter = new vscode.EventEmitter<vscode.Uri[]>();
   readonly onDidChangeFileDecorations = this.emitter.event;
-  readonly status = new Map<string, FileStatus>(); // khoá = đường dẫn tuyệt đối
+  readonly status = new Map<string, FileStatus>(); // key = statusPath()
   set(root: string, rel: string, st: FileStatus) {
-    this.status.set(`${root}/${rel}`, st);
+    this.status.set(statusPath(root, rel), st);
     this.emitter.fire([statusUri(root, rel)]);
   }
   provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
     if (uri.scheme !== 'md-review') return undefined;
     const st = this.status.get(uri.path);
     if (!st) return undefined;
-    return { badge: st, tooltip: STATUS[st].label, color: new vscode.ThemeColor(STATUS[st].color), propagate: false };
+    return { badge: st, tooltip: STATUS[st].label(), color: new vscode.ThemeColor(STATUS[st].color), propagate: false };
   }
 }
 
+/** Changed Markdown files for the current baseline (flat list or folder tree). */
 export class ChangesTree implements vscode.TreeDataProvider<Node> {
   private emitter = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.emitter.event;
@@ -54,6 +57,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
     private baselines: Baselines,
     private state: ReviewState,
     private baseline: () => Baseline,
+    private renderHtml: () => boolean = () => true,
   ) {}
 
   setTreeMode(v: boolean) {
@@ -61,7 +65,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
     this.emitter.fire(undefined);
   }
 
-  /** Danh sách phẳng theo đúng thứ tự đang hiển thị — dùng cho file trước/sau. */
+  /** Flat list in display order — used for previous/next file. */
   flat(): FileNode[] {
     const out: FileNode[] = [];
     const walk = (n?: Node) => {
@@ -84,14 +88,14 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
     this.stats.clear();
     this.emitter.fire(undefined);
     this.updateDescription();
-    // tính +/−/~ trong nền, 4 file một lúc
+    // compute +/−/~ in the background, 4 files at a time
     const queue = this.flat();
     const worker = async () => {
       for (let f = queue.shift(); f; f = queue.shift()) {
         if (g !== this.gen) return;
         const old = await this.baselines.oldContent(f.root, f.rel, b);
         const abs = join(f.root, f.rel);
-        const d = cachedDiff(old, readText(abs));
+        const d = cachedDiff(old, readText(abs), this.renderHtml());
         this.stats.set(`${f.root}|${f.rel}`, d.stats);
         this.decorations.set(f.root, f.rel, !existsSync(abs) ? 'D' : old === '' ? 'A' : 'M');
         this.emitter.fire(f);
@@ -109,17 +113,17 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
     if (!this.view) return;
     const all = this.flat();
     const viewed = all.filter((f) => this.viewed(f.root, f.rel)).length;
-    this.view.description = all.length ? `${viewed}/${all.length} đã xem` : '';
-    this.view.message = all.length ? undefined : `Không có file .md nào thay đổi — mốc: ${this.baselines.label(this.baseline())}`;
+    this.view.description = all.length ? vscode.l10n.t('{0}/{1} viewed', viewed, all.length) : '';
+    this.view.message = all.length || !this.roots().length ? undefined : vscode.l10n.t('No changed Markdown files — baseline: {0}', this.baselines.label(this.baseline()));
   }
 
   refreshItem(_n?: FileNode) {
-    // làm mới cả cây để số "đã xem" của thư mục cha cũng cập nhật
+    // refresh the whole tree so parent folder "viewed" counts update too
     this.emitter.fire(undefined);
     this.updateDescription();
   }
 
-  // ---------- cây thư mục ----------
+  // ---------- folder tree ----------
   private listUnder(root: string, prefix: string) {
     const dirs = new Set<string>();
     const direct: string[] = [];
@@ -132,7 +136,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
     }
     return { dirs: [...dirs].sort(), direct: direct.sort() };
   }
-  /** Gộp chuỗi thư mục chỉ có 1 thư mục con (giống "compact folders" của Source Control). */
+  /** Merge chains of single-child folders (like Source Control's "compact folders"). */
   private compact(root: string, dir: string): string {
     for (;;) {
       const { dirs, direct } = this.listUnder(root, dir + '/');
@@ -186,7 +190,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
       const it = new vscode.TreeItem(basename(n.root), vscode.TreeItemCollapsibleState.Expanded);
       it.id = `repo:${n.root}`;
       it.iconPath = new vscode.ThemeIcon('repo');
-      it.description = `${this.files.get(n.root)?.length ?? 0} file`;
+      it.description = vscode.l10n.t('{0} files', this.files.get(n.root)?.length ?? 0);
       return it;
     }
     if (n.kind === 'folder') {
@@ -195,7 +199,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
       const files = (this.files.get(n.root) ?? []).filter((r) => r.startsWith(n.path + '/'));
       const v = files.filter((r) => this.viewed(n.root, r)).length;
       it.description = `${v}/${files.length}`;
-      it.tooltip = `${n.path}\n${v}/${files.length} file đã xem`;
+      it.tooltip = `${n.path}\n${vscode.l10n.t('{0}/{1} files viewed', v, files.length)}`;
       it.contextValue = 'mdFolder';
       return it;
     }
@@ -204,15 +208,15 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
     const dir = dirname(n.rel) === '.' ? '' : dirname(n.rel);
     const st = s ? [s.add && `+${s.add}`, s.del && `−${s.del}`, s.mod && `~${s.mod}`, s.move && `↕${s.move}`].filter(Boolean).join(' ') : '…';
     it.description = this.treeMode ? st : `${st}  ·  ${dir}`;
-    const fst = this.decorations.status.get(`${n.root}/${n.rel}`);
-    it.tooltip = `${basename(n.rel)}\n${n.rel}${fst ? `\n${STATUS[fst].label}` : ''}\n\nthêm ${s?.add ?? '?'} · xoá ${s?.del ?? '?'} · sửa ${s?.mod ?? '?'} · chuyển ${s?.move ?? '?'} đoạn`;
+    const fst = this.decorations.status.get(statusPath(n.root, n.rel));
+    it.tooltip = `${basename(n.rel)}\n${n.rel}${fst ? `\n${STATUS[fst].label()}` : ''}\n\n${vscode.l10n.t('Blocks: {0} added · {1} removed · {2} modified · {3} moved', s?.add ?? '?', s?.del ?? '?', s?.mod ?? '?', s?.move ?? '?')}`;
     it.iconPath = new vscode.ThemeIcon('markdown');
-    it.resourceUri = statusUri(n.root, n.rel); // để hiện nhãn M/A/D
+    it.resourceUri = statusUri(n.root, n.rel); // shows the M/A/D badge
     it.id = `${n.root}|${n.rel}`;
     it.checkboxState = this.viewed(n.root, n.rel)
       ? vscode.TreeItemCheckboxState.Checked
       : vscode.TreeItemCheckboxState.Unchecked;
-    it.command = { command: 'mdReview.openFile', title: 'Mở', arguments: [n] };
+    it.command = { command: 'mdReview.openFile', title: vscode.l10n.t('Open'), arguments: [n] };
     it.contextValue = 'mdFile';
     return it;
   }
@@ -220,7 +224,7 @@ export class ChangesTree implements vscode.TreeDataProvider<Node> {
 
 interface CommitNode { root: string; rel: string; c: Commit }
 
-/** Lịch sử commit của file đang review. */
+/** Commit history of the file being reviewed. */
 export class HistoryTree implements vscode.TreeDataProvider<CommitNode> {
   private emitter = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.emitter.event;
@@ -244,14 +248,14 @@ export class HistoryTree implements vscode.TreeDataProvider<CommitNode> {
     it.description = `${n.c.date} · ${n.c.author}`;
     it.tooltip = `${n.c.sha.slice(0, 8)}  ${n.c.author}  ${n.c.date}\n${n.c.subject}\n${n.c.path}`;
     it.iconPath = new vscode.ThemeIcon('git-commit');
-    it.command = { command: 'mdReview.openCommit', title: 'Xem', arguments: [n.root, n.c] };
+    it.command = { command: 'mdReview.openCommit', title: vscode.l10n.t('Open commit'), arguments: [n.root, n.c] };
     return it;
   }
 }
 
 export interface OutlineNode { i: number; level: number; text: string; n: number }
 
-/** Các mục có thay đổi của file đang review — bấm để cuộn tab Review tới mục đó. */
+/** Sections with changes in the file being reviewed — click to scroll the Review tab there. */
 export class OutlineTree implements vscode.TreeDataProvider<OutlineNode> {
   private emitter = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this.emitter.event;
@@ -263,7 +267,7 @@ export class OutlineTree implements vscode.TreeDataProvider<OutlineNode> {
     this.items = items;
     if (this.view) {
       this.view.description = file ?? '';
-      this.view.message = items.length ? undefined : file ? 'File này không có thay đổi.' : 'Mở một file trong tab Review để xem mục lục thay đổi.';
+      this.view.message = items.length ? undefined : file ? vscode.l10n.t('This file has no changes.') : vscode.l10n.t('Open a file in the Review tab to see its changed sections.');
     }
     this.emitter.fire();
   }
@@ -283,9 +287,9 @@ export class OutlineTree implements vscode.TreeDataProvider<OutlineNode> {
     const it = new vscode.TreeItem(indent + n.text);
     it.id = `sec:${n.i}`;
     it.description = `${n.n}`;
-    it.tooltip = `${n.text}\n${n.n} thay đổi`;
+    it.tooltip = `${n.text}\n${vscode.l10n.t('{0} changes', n.n)}`;
     it.iconPath = new vscode.ThemeIcon(n.level <= minLv ? 'symbol-namespace' : 'symbol-field');
-    it.command = { command: 'mdReview.scrollToSection', title: 'Tới mục', arguments: [n.i] };
+    it.command = { command: 'mdReview.scrollToSection', title: vscode.l10n.t('Go to section'), arguments: [n.i] };
     return it;
   }
 }

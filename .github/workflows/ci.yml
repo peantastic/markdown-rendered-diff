@@ -1,0 +1,44 @@
+name: CI
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run package
+      - if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with: { name: vsix, path: '*.vsix' }
+
+  publish:
+    # runs only for version tags and only when the tokens are configured as repository secrets
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run package
+      - name: Publish to Visual Studio Marketplace
+        if: env.VSCE_PAT != ''
+        env: { VSCE_PAT: '${{ secrets.VSCE_PAT }}' }
+        run: npx vsce publish --no-dependencies --packagePath markdown-rendered-diff.vsix
+      - name: Publish to Open VSX
+        if: env.OVSX_PAT != ''
+        env: { OVSX_PAT: '${{ secrets.OVSX_PAT }}' }
+        run: npx ovsx publish markdown-rendered-diff.vsix -p "$OVSX_PAT"

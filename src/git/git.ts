@@ -20,7 +20,7 @@ export async function show(root: string, spec: string): Promise<string | undefin
 
 const MD = ['--', '*.md', '*.markdown'];
 
-/** File .md khác nhau giữa rev và working tree (kể cả file mới chưa track). */
+/** Markdown files that differ between `rev` and the working tree (including untracked files). */
 export async function changedVsRev(root: string, rev: string): Promise<string[]> {
   const [d, u] = await Promise.all([
     git(root, ['diff', '-z', '--name-only', rev, ...MD], true),
@@ -29,13 +29,26 @@ export async function changedVsRev(root: string, rev: string): Promise<string[]>
   return [...new Set([...d.split('\0'), ...u.split('\0')].filter(Boolean))].sort();
 }
 
-/** File .md có thay đổi chưa stage (working tree vs index). */
+/** Markdown files with unstaged changes (working tree vs index). */
 export async function changedVsIndex(root: string): Promise<string[]> {
   const [d, u] = await Promise.all([
     git(root, ['diff', '-z', '--name-only', ...MD], true),
     git(root, ['ls-files', '-z', '--others', '--exclude-standard', ...MD], true),
   ]);
   return [...new Set([...d.split('\0'), ...u.split('\0')].filter(Boolean))].sort();
+}
+
+/**
+ * Target branch for the "as in the PR/MR" baseline when none is configured:
+ * the remote's default branch (origin/HEAD), else the first of main / master / develop that exists.
+ */
+export async function defaultBranch(root: string): Promise<string | undefined> {
+  const head = (await git(root, ['symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD'], true)).trim();
+  if (head) return head.replace(/^origin\//, '');
+  for (const b of ['main', 'master', 'develop']) {
+    if (await revExists(root, `origin/${b}`) || await revExists(root, b)) return b;
+  }
+  return undefined;
 }
 
 export async function mergeBase(root: string, branch: string): Promise<string | undefined> {
@@ -68,7 +81,7 @@ export async function fileHistory(root: string, rel: string, limit = 200): Promi
 
 export interface BlameInfo { sha: string; author: string; time: number; summary: string; lines: number; commits: number }
 
-/** Blame một dải dòng (1-based, gồm cả 2 đầu) -> commit mới nhất trong dải. */
+/** Blame a line range (1-based, inclusive) -> the newest commit in that range. */
 export async function blameRange(root: string, rel: string, start: number, end: number, rev?: string): Promise<BlameInfo | undefined> {
   const out = await git(root, ['blame', '--porcelain', '-L', `${start},${end}`, ...(rev ? [rev] : []), '--', rel], true);
   if (!out) return undefined;

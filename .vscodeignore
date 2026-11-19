@@ -2,7 +2,14 @@ src/**
 webview/**
 test/**
 scripts/**
+samples/**
+images/**
+l10n/src/**
 node_modules/**
+.github/**
+.gitignore
 tsconfig.json
 build.mjs
+**/*.map
 *.vsix
+README.*.md
