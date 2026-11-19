@@ -15,17 +15,17 @@ const ICON = {
 export function pageBody(t: WebviewStrings): string {
   const row = (keys: string, text: string) => `<tr><td>${keys}</td><td>${esc(text)}</td></tr>`;
   const k = (s: string) => `<kbd>${s}</kbd>`;
-  return `<header id="bar">
+  return `<header id="bar" role="toolbar" aria-labelledby="title">
   <div class="title"><b id="title"></b><span id="pos" class="muted"></span></div>
-  <span id="stats"></span>
+  <span id="stats" aria-live="polite"></span>
   <span class="spacer"></span>
-  <span class="seg-group"><button id="mUnified" class="icon" title="${esc(t.viewUnified)}">${ICON.unified}</button><button id="mSplit" class="icon" title="${esc(t.viewSplit)}">${ICON.split}</button></span>
-  <button id="only" class="toggle icon" title="${esc(t.showAll)}">${ICON.expand}</button>
-  <span class="nav"><button id="prev" title="${esc(t.prevChange)}">◀</button><span id="cur" class="muted"></span><button id="next" title="${esc(t.nextChange)}">▶</button></span>
-  <button id="helpBtn" title="${esc(t.shortcutsButton)}">?</button>
+  <span class="seg-group" role="group"><button id="mUnified" class="icon" aria-pressed="true" aria-label="${esc(t.viewUnified)}" title="${esc(t.viewUnified)}">${ICON.unified}</button><button id="mSplit" class="icon" aria-pressed="false" aria-label="${esc(t.viewSplit)}" title="${esc(t.viewSplit)}">${ICON.split}</button></span>
+  <button id="only" class="toggle icon" aria-pressed="false" aria-label="${esc(t.showAll)}" title="${esc(t.showAll)}">${ICON.expand}</button>
+  <span class="nav"><button id="prev" aria-label="${esc(t.prevChange)}" title="${esc(t.prevChange)}">◀</button><span id="cur" class="muted"></span><button id="next" aria-label="${esc(t.nextChange)}" title="${esc(t.nextChange)}">▶</button></span>
+  <button id="helpBtn" aria-haspopup="dialog" aria-expanded="false" aria-label="${esc(t.shortcutsButton)}" title="${esc(t.shortcutsButton)}">?</button>
 </header>
-<div id="help" hidden><div class="help-box">
-  <b>${esc(t.shortcuts)}</b>
+<div id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle"><div class="help-box" tabindex="-1">
+  <b id="helpTitle">${esc(t.shortcuts)}</b>
   <table>
     ${row(`${k('n')} / ${k('p')}`, t.keyNextPrev)}
     ${row(k('x'), t.keySeen)}
@@ -38,8 +38,8 @@ export function pageBody(t: WebviewStrings): string {
   <div class="muted">${esc(t.helpFooter)}</div>
 </div></div>
 <main id="content"></main>
-<div id="ruler"></div>
-<div id="tip"></div>`;
+<div id="ruler" aria-hidden="true"></div>
+<div id="tip" aria-hidden="true"></div>`;
 }
 
 /** JSON island read by the webview script; `<` is escaped so the content cannot close the script tag. */

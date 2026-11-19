@@ -4,7 +4,7 @@
   "description": "%description%",
   "version": "0.5.0",
   "preview": true,
-  "publisher": "todo-publisher",
+  "publisher": "peantastic",
   "license": "MIT",
   "icon": "media/icon.png",
   "galleryBanner": {
@@ -13,11 +13,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/TODO-OWNER/markdown-rendered-diff.git"
+    "url": "https://github.com/peantastic/markdown-rendered-diff.git"
   },
-  "homepage": "https://github.com/TODO-OWNER/markdown-rendered-diff#readme",
+  "homepage": "https://github.com/peantastic/markdown-rendered-diff#readme",
   "bugs": {
-    "url": "https://github.com/TODO-OWNER/markdown-rendered-diff/issues"
+    "url": "https://github.com/peantastic/markdown-rendered-diff/issues"
   },
   "keywords": [
     "markdown",
@@ -308,6 +308,7 @@
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^4.1.1",
     "esbuild": "^0.28.2",
+    "jsdom": "^29.1.1",
     "typescript": "^7.0.2",
     "vitest": "^5.1.1"
   },

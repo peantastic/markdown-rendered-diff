@@ -1,6 +1,10 @@
 // Runs inside the Review tab webview: receives diff data from the extension and renders it.
 import DOMPurify from 'dompurify';
 import { WEBVIEW_STRINGS, WebviewStringKey, format } from '../src/i18n/webviewStrings';
+import { ariaPressed, changeLabelKey, progressAttrs } from './a11y';
+
+// Honour the OS "reduce motion" setting for programmatic scrolling.
+const motion: ScrollBehavior = (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'auto' : 'smooth';
 
 declare const acquireVsCodeApi: () => { postMessage(m: unknown): void; getState(): any; setState(s: any): void };
 declare const mermaid: any;
@@ -90,7 +94,8 @@ function segHtml(s: Seg, i: number, split: boolean): string {
     const R = s.kind === 'del' ? '<div class="R empty"></div>' : `<div class="R">${s.new}</div>`;
     body = `<div class="split">${L}${R}</div>`;
   } else body = s.unified;
-  return `<section class="${cls.join(' ')}" data-i="${i}"${s.heading ? ` id="h${i}"` : ''}>${gutter}${note}<div class="body">${body}</div></section>`;
+  const a11y = isChange(s) ? ` tabindex="-1" role="group" aria-label="${esc(t(changeLabelKey[s.kind]))}"` : '';
+  return `<section class="${cls.join(' ')}" data-i="${i}"${s.heading ? ` id="h${i}"` : ''}${a11y}>${gutter}${note}<div class="body">${body}</div></section>`;
 }
 
 /** Unchanged blocks more than one block away from a change are folded into collapsible groups. */
@@ -123,6 +128,9 @@ function render(reset: boolean, restoreY?: number) {
   $('only').classList.toggle('on', !p.collapse);
   $('mUnified').classList.toggle('on', p.mode === 'unified');
   $('mSplit').classList.toggle('on', p.mode === 'split');
+  $('only').setAttribute('aria-pressed', ariaPressed(!p.collapse));
+  $('mUnified').setAttribute('aria-pressed', ariaPressed(p.mode === 'unified'));
+  $('mSplit').setAttribute('aria-pressed', ariaPressed(p.mode === 'split'));
   // the file name is already on the tab -> the toolbar shows the containing folder (or the commit when viewing history)
   $('title').innerHTML = `<bdi>${esc(data.where ?? data.title)}</bdi>`;
   $('pos').textContent = data.pos ? data.pos : '';
@@ -145,6 +153,7 @@ function render(reset: boolean, restoreY?: number) {
   changeEls = [...content.querySelectorAll<HTMLElement>('section.seg:not(.k-eq)')];
   if (cur >= changeEls.length) cur = -1;
   changeEls[cur]?.classList.add('focus');
+  changeEls[cur]?.setAttribute('aria-current', 'true');
   collapseTableRows();
   assignSlugs();
   postOutline();
@@ -276,10 +285,10 @@ function toggleGap(g: number, open?: boolean) {
   requestAnimationFrame(afterLayout);
 }
 function scrollToSection(i: number) {
-  if (i < 0) return window.scrollTo({ top: 0, behavior: 'smooth' });
+  if (i < 0) return window.scrollTo({ top: 0, behavior: motion });
   const el = document.getElementById('h' + i);
   reveal(el);
-  requestAnimationFrame(() => { if (el) window.scrollTo({ top: el.offsetTop - 40, behavior: 'smooth' }); });
+  requestAnimationFrame(() => { if (el) window.scrollTo({ top: el.offsetTop - 40, behavior: motion }); });
 }
 let lastSection = -2;
 let scrollTimer: number | undefined;
@@ -307,7 +316,7 @@ function updateCounter() {
   const seenTip = esc(t('seenOf', nSeen, n));
   $('cur').innerHTML = !n ? `<span class="muted">${esc(t('noChanges'))}</span>`
     : `<span class="pos"><b>${cur >= 0 ? cur + 1 : '–'}</b><span class="muted">/${n}</span></span>` +
-      `<span class="prog${nSeen === n ? ' done' : ''}" title="${seenTip}"><i style="width:${pct}%"></i></span><span class="muted" title="${seenTip}">${esc(t('seenCount', nSeen))}</span>`;
+      `<span class="prog${nSeen === n ? ' done' : ''}" ${progressAttrs(nSeen, n, seenTip)} title="${seenTip}"><i style="width:${pct}%"></i></span><span class="muted" title="${seenTip}">${esc(t('seenCount', nSeen))}</span>`;
 }
 
 function drawRuler() {
@@ -333,11 +342,14 @@ function go(dir: number) {
 }
 function focusChange(k: number) {
   changeEls[cur]?.classList.remove('focus');
+  changeEls[cur]?.removeAttribute('aria-current');
   cur = k;
   const el = changeEls[k];
   reveal(el);
   el.classList.add('focus');
-  el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  el.setAttribute('aria-current', 'true');
+  el.focus({ preventScroll: true }); // move real focus so screen readers follow
+  el.scrollIntoView({ block: 'center', behavior: motion });
   updateCounter();
 }
 
@@ -408,9 +420,33 @@ function assignSlugs() {
 
 // ---------- keyboard shortcut overlay ----------
 const help = $('help');
-const toggleHelp = (v?: boolean) => { help.hidden = !(v ?? help.hidden); };
-$('helpBtn').onclick = () => toggleHelp();
+const helpBtn = $('helpBtn');
+let helpReturnFocus: HTMLElement | null = null;
+const toggleHelp = (v?: boolean) => {
+  const show = v ?? help.hidden;
+  help.hidden = !show;
+  helpBtn.setAttribute('aria-expanded', String(show));
+  if (show) {
+    helpReturnFocus = document.activeElement as HTMLElement;
+    help.querySelector<HTMLElement>('.help-box')?.focus();
+  } else {
+    (helpReturnFocus ?? helpBtn).focus();
+    helpReturnFocus = null;
+  }
+};
+helpBtn.onclick = () => toggleHelp();
 help.onclick = (e) => { if (e.target === help) toggleHelp(false); };
+// keep focus inside the dialog while it is open
+help.addEventListener('keydown', (e) => {
+  if (help.hidden) return;
+  if (e.key === 'Escape') { e.preventDefault(); toggleHelp(false); return; }
+  if (e.key !== 'Tab') return;
+  const f = [...help.querySelectorAll<HTMLElement>('[tabindex],button,a[href]')].filter((x) => !x.hasAttribute('disabled'));
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
 
 // ---------- events ----------
 content.addEventListener('click', (e) => {
@@ -444,7 +480,7 @@ content.addEventListener('click', (e) => {
       const id = decodeURIComponent(href.slice(1));
       const el = document.getElementById(id) ?? document.getElementById(slug(id));
       reveal(el);
-      requestAnimationFrame(() => { if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 50, behavior: 'smooth' }); });
+      requestAnimationFrame(() => { if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 50, behavior: motion }); });
     } else vscode.postMessage({ type: 'link', href });
     return;
   }
@@ -461,7 +497,7 @@ ruler.addEventListener('click', (e) => {
   const t = e.target as HTMLElement;
   if (t.dataset.k) return focusChange(Number(t.dataset.k));
   const y = (e as MouseEvent).clientY / ruler.clientHeight;
-  window.scrollTo({ top: y * document.documentElement.scrollHeight - window.innerHeight / 2, behavior: 'smooth' });
+  window.scrollTo({ top: y * document.documentElement.scrollHeight - window.innerHeight / 2, behavior: motion });
 });
 $('next').onclick = () => go(1);
 $('prev').onclick = () => go(-1);

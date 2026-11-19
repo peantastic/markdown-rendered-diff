@@ -32,15 +32,19 @@ export interface PanelHost {
 
 export interface OutlineItem { i: number; level: number; text: string; n: number }
 
+export const CACHE_MAX = 200;
 const cache = new Map<string, DiffResult>();
 export function cachedDiff(oldSrc: string, newSrc: string, html = true): DiffResult {
   const k = hash(oldSrc) + ':' + hash(newSrc) + (html ? '' : ':nohtml');
-  let r = cache.get(k);
-  if (!r) {
-    r = diffMarkdown(oldSrc, newSrc, { html });
-    if (cache.size > 200) cache.clear();
-    cache.set(k, r);
+  const hit = cache.get(k);
+  if (hit) {
+    cache.delete(k); // move to most-recently-used
+    cache.set(k, hit);
+    return hit;
   }
+  const r = diffMarkdown(oldSrc, newSrc, { html });
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value!); // evict least-recently-used
+  cache.set(k, r);
   return r;
 }
 

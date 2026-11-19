@@ -24,8 +24,10 @@ button {
   font: inherit; font-size: 12px; color: var(--vscode-button-secondaryForeground, inherit);
   background: var(--vscode-button-secondaryBackground, transparent); border: 1px solid var(--border);
   border-radius: 4px; padding: 1px 8px; cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, transform .06s ease;
 }
 button:hover:not(:disabled) { background: var(--vscode-button-secondaryHoverBackground, rgba(128,128,128,.2)); }
+button:active:not(:disabled) { transform: translateY(0.5px); }
 button:disabled { opacity: .35; cursor: default; }
 button.link { border: none; background: none; color: var(--vscode-textLink-foreground); padding: 0 4px; }
 label { font-size: 12px; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; user-select: none; }
@@ -69,7 +71,7 @@ button.toggle.on { background: var(--vscode-button-background); color: var(--vsc
 .banner { padding: 6px 12px; margin-bottom: 12px; border: 1px dashed var(--border); border-radius: 4px; color: var(--muted); }
 
 /* ---------- blocks ---------- */
-section.seg { position: relative; padding: 0 12px; border-left: 3px solid transparent; margin: 2px 0; }
+section.seg { position: relative; padding: 0 12px; border-left: 3px solid transparent; margin: 2px 0; transition: opacity .12s ease; }
 section.seg > .body > :first-child { margin-top: 4px; }
 section.seg > .body > :last-child { margin-bottom: 4px; }
 section.k-add { border-left-color: var(--ins-fg); background: var(--ins-line); }
@@ -80,7 +82,9 @@ section.k-move { border-left-color: var(--move-fg); background: rgba(68, 147, 24
 section.k-moveSrc { border-left-color: var(--del-fg); }
 section.seen { opacity: .55; }
 section.seen:hover { opacity: 1; }
-section.focus { outline: 2px solid var(--focus); outline-offset: 2px; }
+section.focus, section.seg:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+section.seg:focus { outline: none; }
+.help-box:focus { outline: none; }
 .note { font-size: 12px; color: var(--move-fg); padding-top: 4px; }
 section.k-moveSrc .note { color: var(--del-fg); }
 .gutter { position: absolute; left: -30px; top: 2px; display: none; flex-direction: column; gap: 2px; }
@@ -144,6 +148,7 @@ details.mm-code summary { cursor: pointer; font-size: 12px; color: var(--muted);
 .gap {
   margin: 6px 0; padding: 4px 12px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
   border: 1px dashed var(--border); border-radius: 4px; background: rgba(128, 128, 128, .05);
+  transition: color .12s ease, border-color .12s ease;
 }
 .gap:hover { color: var(--vscode-textLink-foreground); border-color: var(--vscode-textLink-foreground); }
 .gap.open { border-style: solid; }
@@ -165,7 +170,7 @@ body.split-mode section.k-eq { padding-left: 12px; }
 .help-box {
   max-width: 420px; padding: 12px 16px; border-radius: 6px; font-size: 13px;
   background: var(--vscode-editorWidget-background, var(--bar-bg)); border: 1px solid var(--vscode-editorWidget-border, var(--border));
-  box-shadow: 0 4px 16px rgba(0, 0, 0, .3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .18);
 }
 .help-box table { margin: 8px 0; font-size: 12px; }
 .help-box td { border: none; padding: 2px 8px 2px 0; }
@@ -179,7 +184,7 @@ button.icon svg { display: block; }
 #cur { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; }
 #cur .pos b { font-weight: 600; color: var(--vscode-editor-foreground); }
 #cur .prog { display: inline-block; width: 46px; height: 4px; border-radius: 2px; background: rgba(128, 128, 128, .3); overflow: hidden; }
-#cur .prog i { display: block; height: 100%; background: var(--vscode-textLink-foreground); }
+#cur .prog i { display: block; height: 100%; background: var(--vscode-textLink-foreground); transition: width .15s ease; }
 #cur .prog.done i { background: var(--ins-fg); }
 
 /* remote image blocked by default */
@@ -191,3 +196,10 @@ button.icon svg { display: block; }
 
 /* document styles cannot overlay the UI (clickjacking inside the Review tab) */
 #content .body [style*="fixed" i], #content .body [style*="sticky" i] { position: static !important; }
+
+/* honour the OS reduce-motion setting (JS scrolling is also guarded) */
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; }
+  button, .gap, section.seg, #cur .prog i { transition: none !important; }
+  button:active:not(:disabled) { transform: none !important; }
+}

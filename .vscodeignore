@@ -7,9 +7,11 @@ images/**
 l10n/src/**
 node_modules/**
 .github/**
+.claude/**
 .gitignore
 tsconfig.json
 build.mjs
+vitest.config.*
 **/*.map
 *.vsix
 README.*.md
