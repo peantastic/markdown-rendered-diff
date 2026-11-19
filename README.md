@@ -13,6 +13,9 @@ Text diffs of Markdown are hard to review: a one-word change in a table row show
 - **Rendered diff** of paragraphs, lists, headings, code blocks and front matter, with word-level highlights. Works well with Japanese, Chinese and Vietnamese text (word segmentation via `Intl.Segmenter`).
 - **Table-aware**: added / removed rows, and only the changed cells are highlighted. Raw HTML tables (`colspan`, `rowspan`, `colgroup`) are supported too.
 - **Mermaid diagrams** are rendered side by side (before / after), with the diagram source diff one click away.
+- **Math, alerts & footnotes**: KaTeX formulas (`$…$`, `$$…$$`), GitHub alerts (`> [!NOTE]`, `[!WARNING]`…) and footnotes all render in the diff.
+- **Ask AI about a change** (`a`): turn one change into a ready-made prompt and send it to the clipboard, a chat view, or your own CLI — the extension never calls the network itself.
+- **Export** the rendered diff to a single self-contained `.html` (open in any browser, print to PDF).
 - **Unified or side-by-side** (`s`). In side-by-side mode table rows stay aligned and unchanged blocks are shown only once.
 - **Collapse unchanged content** (`c`): only the changes plus one block of context are shown; collapsed groups list the headings they contain.
 - **Track your progress**: mark single changes as seen (`x`) and whole files as viewed (checkbox in the sidebar, `v`). Navigation (`n` / `p`) jumps to unseen changes first.
@@ -26,6 +29,7 @@ Text diffs of Markdown are hard to review: a one-word change in a table row show
   - As in the PR/MR — merge base with the target branch, i.e. what reviewers will see
   - Unstaged changes
   - Any commit, tag or branch
+  - The clipboard (**Compare with Clipboard**), or VS Code's own Markdown diff tabs
   - Latest Claude Code turn (optional, see below)
 - **Blame on hover**: rest the mouse on a block for a second to see who last changed it.
 - Links between documents and `#anchors` work inside the Review tab; ↗ opens the source line in the editor.

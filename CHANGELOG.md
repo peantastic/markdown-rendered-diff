@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.0
+
+- **Math, alerts and footnotes**: KaTeX math (`$…$`, `$$…$$`), GitHub alerts (`> [!NOTE]`, `[!WARNING]`…) and footnotes now render in the diff, with changes detected at the block level.
+- **Ask AI about a change**: an ✨ button (and the `a` key) turns a single change into a ready-to-use prompt and delivers it via the clipboard, a VS Code chat view, or a terminal running your own CLI (`mdReview.ai.channel` / `mdReview.ai.command`). Nothing is sent over the network by the extension.
+- **Compare with Clipboard**: diff the current Markdown file against the clipboard contents.
+- **Open Rendered Diff** now also works from VS Code's built-in Markdown diff tabs (renders that exact original-vs-modified diff).
+- **Export Rendered Diff**: save the current rendered diff as a single, self-contained `.html` (inlined styles, KaTeX fonts embedded, rendered Mermaid included) — open in any browser or print to PDF.
+- Math support adds KaTeX fonts to the package (~0.3 MB).
+
 ## 0.5.0 — first public preview
 
 - English UI with Vietnamese, Japanese and Simplified Chinese translations (follows the VS Code display language).
