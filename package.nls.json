@@ -17,6 +17,7 @@
   "cmd.viewAsTree": "View as Tree",
   "cmd.viewAsList": "View as List",
   "cmd.scrollToSection": "Go to Section",
+  "cmd.compareClipboard": "Compare with Clipboard",
   "container": "Markdown Diff",
   "view.changes": "Changed Files",
   "view.outline": "Changed Sections",

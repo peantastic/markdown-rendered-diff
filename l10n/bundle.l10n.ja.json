@@ -102,5 +102,7 @@
   "⋯ 1 unchanged block": "⋯ 変更なしのブロック 1 個",
   "⋯ {0} unchanged blocks": "⋯ 変更なしのブロック {0} 個",
   "⋯ 1 unchanged row — click to expand": "⋯ 変更なしの行 1 行 — クリックで展開",
-  "⋯ {0} unchanged rows — click to expand": "⋯ 変更なしの行 {0} 行 — クリックで展開"
+  "⋯ {0} unchanged rows — click to expand": "⋯ 変更なしの行 {0} 行 — クリックで展開",
+  "Clipboard": "クリップボード",
+  "The clipboard is empty.": "クリップボードが空です。"
 }

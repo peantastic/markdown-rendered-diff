@@ -102,5 +102,7 @@
   "⋯ 1 unchanged block": "⋯ 1 đoạn không đổi",
   "⋯ {0} unchanged blocks": "⋯ {0} đoạn không đổi",
   "⋯ 1 unchanged row — click to expand": "⋯ 1 dòng không đổi — bấm để mở",
-  "⋯ {0} unchanged rows — click to expand": "⋯ {0} dòng không đổi — bấm để mở"
+  "⋯ {0} unchanged rows — click to expand": "⋯ {0} dòng không đổi — bấm để mở",
+  "Clipboard": "Clipboard",
+  "The clipboard is empty.": "Clipboard đang trống."
 }

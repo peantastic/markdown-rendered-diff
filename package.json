@@ -131,6 +131,12 @@
         "command": "mdReview.scrollToSection",
         "title": "%cmd.scrollToSection%",
         "category": "%category%"
+      },
+      {
+        "command": "mdReview.compareWithClipboard",
+        "title": "%cmd.compareClipboard%",
+        "category": "%category%",
+        "icon": "$(clippy)"
       }
     ],
     "viewsContainers": {
@@ -169,6 +175,11 @@
       "explorer/context": [
         {
           "command": "mdReview.open",
+          "group": "navigation@99",
+          "when": "resourceExtname =~ /\\.(md|markdown)$/"
+        },
+        {
+          "command": "mdReview.compareWithClipboard",
           "group": "navigation@99",
           "when": "resourceExtname =~ /\\.(md|markdown)$/"
         }

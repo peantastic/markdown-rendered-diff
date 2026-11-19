@@ -17,6 +17,7 @@
   "cmd.viewAsTree": "以树形显示",
   "cmd.viewAsList": "以列表显示",
   "cmd.scrollToSection": "转到章节",
+  "cmd.compareClipboard": "与剪贴板比较",
   "container": "Markdown Diff",
   "view.changes": "已更改文件",
   "view.outline": "已更改章节",

@@ -195,6 +195,23 @@ export async function activate(ctx: vscode.ExtensionContext) {
     await openFile({ kind: 'file', root, rel });
   });
   reg('mdReview.openFile', (n: FileNode) => openFile(n));
+  reg('mdReview.compareWithClipboard', async (arg?: any) => {
+    let uri: vscode.Uri | undefined = arg instanceof vscode.Uri ? arg : arg?.resourceUri ?? undefined;
+    uri ??= activeMd();
+    if (!uri) return vscode.window.showInformationMessage(vscode.l10n.t('Open a Markdown file first.'));
+    if (!(await vscode.env.clipboard.readText()).trim()) {
+      return vscode.window.showInformationMessage(vscode.l10n.t('The clipboard is empty.'));
+    }
+    const abs = uri.fsPath;
+    const root = (trusted() ? rootOf(abs) : undefined) ?? dirname(abs);
+    const rel = relInside(root, abs) ?? abs.slice(root.length + 1);
+    await panel.show({
+      root, rel, working: false,
+      title: basename(rel),
+      sub: vscode.l10n.t('Clipboard'),
+      load: async () => ({ old: await vscode.env.clipboard.readText(), new: readText(abs) }),
+    });
+  });
   reg('mdReview.scrollToSection', (i: number) => panel.scrollTo(i));
   reg('mdReview.openCommit', async (root: string, c: Commit) => {
     const sha = c.sha.slice(0, 8);

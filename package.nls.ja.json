@@ -17,6 +17,7 @@
   "cmd.viewAsTree": "ツリーで表示",
   "cmd.viewAsList": "一覧で表示",
   "cmd.scrollToSection": "見出しへ移動",
+  "cmd.compareClipboard": "クリップボードと比較",
   "container": "Markdown Diff",
   "view.changes": "変更ファイル",
   "view.outline": "変更のある見出し",

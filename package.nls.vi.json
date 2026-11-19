@@ -17,6 +17,7 @@
   "cmd.viewAsTree": "Xem dạng cây thư mục",
   "cmd.viewAsList": "Xem dạng danh sách",
   "cmd.scrollToSection": "Tới mục",
+  "cmd.compareClipboard": "So sánh với Clipboard",
   "container": "Markdown Diff",
   "view.changes": "File thay đổi",
   "view.outline": "Mục lục thay đổi",
