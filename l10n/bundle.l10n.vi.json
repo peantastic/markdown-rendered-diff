@@ -129,5 +129,8 @@
   "Ask the AI about the selected change": "Hỏi AI về thay đổi đang chọn",
   "Clipboard": "Clipboard",
   "Editor diff": "Diff trong editor",
-  "The clipboard is empty.": "Clipboard đang trống."
+  "The clipboard is empty.": "Clipboard đang trống.",
+  "Open a rendered diff first, then export.": "Mở một bản diff đã render trước, rồi mới export.",
+  "Export": "Export",
+  "Exported the rendered diff.": "Đã export bản diff."
 }

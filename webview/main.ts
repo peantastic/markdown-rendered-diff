@@ -545,6 +545,11 @@ window.addEventListener('message', (ev) => {
     scrollToSection(m.i);
   } else if (m.type === 'base') {
     $<HTMLBaseElement>('base').href = m.base;
+  } else if (m.type === 'export') {
+    // snapshot the rendered body (incl. KaTeX + already-rendered Mermaid SVGs), minus interactive chrome
+    const clone = content.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('.gutter').forEach((e) => e.remove());
+    vscode.postMessage({ type: 'exportResult', html: clone.innerHTML, title: data?.title ?? 'diff' });
   }
 });
 

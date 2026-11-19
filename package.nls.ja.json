@@ -39,5 +39,6 @@
   "cfg.ai.ch.terminal": "ターミナルを開き、mdReview.ai.command の CLI をプロンプト付きで実行します。",
   "cfg.ai.ch.chat": "VS Code のアクティブなチャット ビュー (例: Copilot Chat) にプロンプトを送信します。",
   "cfg.ai.command": "「AI に質問」の「terminal」送信で起動する CLI。プロンプトを最初のメッセージとして渡します (例: claude、gemini、codex、aider)。",
-  "cfg.ai.command.invalid": "使用できるのは英数字、スペース、および _ . / @ : + ~ ^ - のみです。"
+  "cfg.ai.command.invalid": "使用できるのは英数字、スペース、および _ . / @ : + ~ ^ - のみです。",
+  "cmd.export": "レンダリング差分をエクスポート"
 }

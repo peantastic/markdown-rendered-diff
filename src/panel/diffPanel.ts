@@ -54,6 +54,7 @@ export class DiffPanel {
   private req?: DiffRequest;
   private newContent = '';
   private ready = false;
+  private pendingExport?: (r: { title: string; html: string }) => void;
 
   constructor(private ctx: vscode.ExtensionContext, private host: PanelHost) {}
 
@@ -91,6 +92,16 @@ export class DiffPanel {
   /** Called when the file changes on disk or the baseline changes. */
   async refresh() {
     if (this.panel && this.req) await this.render(false);
+  }
+
+  /** Ask the webview for a snapshot of the rendered diff body (for export). */
+  requestExport(): Promise<{ title: string; html: string } | undefined> {
+    if (!this.panel || !this.ready) return Promise.resolve(undefined);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => { this.pendingExport = undefined; resolve(undefined); }, 5000);
+      this.pendingExport = (r) => { clearTimeout(timer); this.pendingExport = undefined; resolve(r); };
+      void this.panel!.webview.postMessage({ type: 'export' });
+    });
   }
 
   private async render(resetScroll: boolean) {
@@ -218,6 +229,11 @@ export class DiffPanel {
         });
         break;
       }
+      case 'exportResult':
+        if (this.pendingExport && typeof m.html === 'string' && typeof m.title === 'string') {
+          this.pendingExport({ title: m.title.slice(0, 300), html: m.html });
+        }
+        break;
     }
   }
 

@@ -137,6 +137,12 @@
         "title": "%cmd.compareClipboard%",
         "category": "%category%",
         "icon": "$(clippy)"
+      },
+      {
+        "command": "mdReview.export",
+        "title": "%cmd.export%",
+        "category": "%category%",
+        "icon": "$(save-as)"
       }
     ],
     "viewsContainers": {
@@ -170,6 +176,11 @@
           "command": "mdReview.open",
           "group": "navigation",
           "when": "resourceLangId == markdown || activeCustomEditorId == vscode.markdown.preview.editor || activeWebviewPanelId == markdown.preview || (isInDiffEditor && resourceExtname =~ /\\.(md|markdown)$/)"
+        },
+        {
+          "command": "mdReview.export",
+          "group": "navigation",
+          "when": "activeWebviewPanelId == mdReview.diff"
         }
       ],
       "explorer/context": [

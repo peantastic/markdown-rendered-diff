@@ -39,5 +39,6 @@
   "cfg.ai.ch.terminal": "打开终端并使用 mdReview.ai.command 中的 CLI 运行提示。",
   "cfg.ai.ch.chat": "将提示发送到 VS Code 中活动的聊天视图 (例如 Copilot Chat)。",
   "cfg.ai.command": "用于“询问 AI”的“terminal”传递方式所启动的 CLI,并将提示作为首条消息 (例如 claude、gemini、codex、aider)。",
-  "cfg.ai.command.invalid": "仅允许字母、数字、空格以及 _ . / @ : + ~ ^ -。"
+  "cfg.ai.command.invalid": "仅允许字母、数字、空格以及 _ . / @ : + ~ ^ -。",
+  "cmd.export": "导出渲染差异"
 }

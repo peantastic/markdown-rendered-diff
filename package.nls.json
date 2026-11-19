@@ -39,5 +39,6 @@
   "cfg.ai.ch.terminal": "Open a terminal and run the CLI from mdReview.ai.command with the prompt.",
   "cfg.ai.ch.chat": "Send the prompt to the active VS Code chat view (e.g. Copilot Chat).",
   "cfg.ai.command": "CLI launched for the \"terminal\" delivery of Ask AI, with the prompt as its first message (e.g. claude, gemini, codex, aider).",
-  "cfg.ai.command.invalid": "Only letters, digits, spaces and _ . / @ : + ~ ^ - are allowed."
+  "cfg.ai.command.invalid": "Only letters, digits, spaces and _ . / @ : + ~ ^ - are allowed.",
+  "cmd.export": "Export Rendered Diff"
 }

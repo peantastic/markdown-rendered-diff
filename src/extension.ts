@@ -6,6 +6,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { Baseline, Baselines, readText, relInside } from './baseline/baseline';
 import { Commit, gitExecutable, isSafeRev, revExists, SAFE_CONFIG, setGitPath, show } from './git/git';
 import { DiffPanel, DiffRequest } from './panel/diffPanel';
+import { buildExport } from './panel/exportHtml';
 import { ReviewState } from './state/reviewState';
 import { ChangesTree, FileNode, HistoryTree, OutlineTree } from './views/trees';
 import { claudeHookInstalled, installClaudeHook, uninstallClaudeHook } from './claudeHook';
@@ -235,6 +236,42 @@ export async function activate(ctx: vscode.ExtensionContext) {
       sub: vscode.l10n.t('Clipboard'),
       load: async () => ({ old: await vscode.env.clipboard.readText(), new: readText(abs) }),
     });
+  });
+  reg('mdReview.export', async () => {
+    const snap = await panel.requestExport();
+    if (!snap) return vscode.window.showInformationMessage(vscode.l10n.t('Open a rendered diff first, then export.'));
+    const read = async (...p: string[]) => Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.joinPath(ctx.extensionUri, ...p))).toString('utf8');
+    const reviewCss = await read('media', 'review.css');
+    let katexCss: string | undefined;
+    if (snap.html.includes('katex')) {
+      katexCss = await read('media', 'katex', 'katex.min.css');
+      const fonts = new Map<string, string>();
+      for (const [, name] of katexCss.matchAll(/url\(fonts\/([\w-]+\.woff2)\)/g)) {
+        if (fonts.has(name)) continue;
+        try {
+          const b = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(ctx.extensionUri, 'media', 'katex', 'fonts', name));
+          fonts.set(name, `data:font/woff2;base64,${Buffer.from(b).toString('base64')}`);
+        } catch { /* missing font: leave the reference */ }
+      }
+      // inline woff2 as data URIs and drop the woff/ttf fallbacks we don't ship (offline, no 404s)
+      katexCss = katexCss
+        .replace(/url\(fonts\/([\w-]+\.woff2)\)/g, (m, n) => fonts.has(n) ? `url(${fonts.get(n)})` : m)
+        .replace(/,\s*url\(fonts\/[\w-]+\.(?:woff|ttf)\)\s*format\(["'](?:woff|truetype)["']\)/g, '');
+    }
+    const doc = buildExport({ title: snap.title, bodyHtml: snap.html, reviewCss, katexCss });
+    const c = panel.current;
+    const name = basename(c?.rel ?? snap.title).replace(/\.(md|markdown)$/i, '') || 'diff';
+    const dest = await vscode.window.showSaveDialog({
+      saveLabel: vscode.l10n.t('Export'),
+      filters: { HTML: ['html'] },
+      defaultUri: vscode.Uri.file(join(c?.root ?? vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '', `${name}.diff.html`)),
+    });
+    if (!dest) return;
+    await vscode.workspace.fs.writeFile(dest, Buffer.from(doc, 'utf8'));
+    const open = vscode.l10n.t('Open');
+    if ((await vscode.window.showInformationMessage(vscode.l10n.t('Exported the rendered diff.'), open)) === open) {
+      void vscode.env.openExternal(dest);
+    }
   });
   reg('mdReview.scrollToSection', (i: number) => panel.scrollTo(i));
   reg('mdReview.openCommit', async (root: string, c: Commit) => {

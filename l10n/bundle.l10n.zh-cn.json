@@ -129,5 +129,8 @@
   "Ask the AI about the selected change": "就选中的更改询问 AI",
   "Clipboard": "剪贴板",
   "Editor diff": "编辑器差异",
-  "The clipboard is empty.": "剪贴板为空。"
+  "The clipboard is empty.": "剪贴板为空。",
+  "Open a rendered diff first, then export.": "请先打开一个渲染差异,然后再导出。",
+  "Export": "导出",
+  "Exported the rendered diff.": "已导出渲染差异。"
 }

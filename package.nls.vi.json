@@ -39,5 +39,6 @@
   "cfg.ai.ch.terminal": "Mở terminal và chạy CLI trong mdReview.ai.command với prompt.",
   "cfg.ai.ch.chat": "Gửi prompt tới khung chat đang mở trong VS Code (vd. Copilot Chat).",
   "cfg.ai.command": "CLI được khởi chạy cho kiểu gửi \"terminal\" của Hỏi AI, với prompt là tin nhắn đầu tiên (vd. claude, gemini, codex, aider).",
-  "cfg.ai.command.invalid": "Chỉ cho phép chữ cái, chữ số, dấu cách và _ . / @ : + ~ ^ -."
+  "cfg.ai.command.invalid": "Chỉ cho phép chữ cái, chữ số, dấu cách và _ . / @ : + ~ ^ -.",
+  "cmd.export": "Export bản diff ra HTML"
 }

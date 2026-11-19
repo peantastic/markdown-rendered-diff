@@ -129,5 +129,8 @@
   "Ask the AI about the selected change": "選択中の変更について AI に質問",
   "Clipboard": "クリップボード",
   "Editor diff": "エディターの差分",
-  "The clipboard is empty.": "クリップボードが空です。"
+  "The clipboard is empty.": "クリップボードが空です。",
+  "Open a rendered diff first, then export.": "まずレンダリング差分を開いてからエクスポートしてください。",
+  "Export": "エクスポート",
+  "Exported the rendered diff.": "レンダリング差分をエクスポートしました。"
 }
