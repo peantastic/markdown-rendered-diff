@@ -1,0 +1,5 @@
+node_modules/
+dist/
+*.vsix
+media/mermaid.min.js
+screenshots-tmp/

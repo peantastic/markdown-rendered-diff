@@ -1,0 +1,8 @@
+src/**
+webview/**
+test/**
+scripts/**
+node_modules/**
+tsconfig.json
+build.mjs
+*.vsix

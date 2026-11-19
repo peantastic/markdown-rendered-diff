@@ -1,0 +1,239 @@
+{
+  "name": "md-review",
+  "displayName": "MD Review",
+  "description": "Review thay đổi Markdown ở dạng đã render (cá nhân)",
+  "version": "0.4.3",
+  "publisher": "local",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch",
+    "test": "vitest run",
+    "package": "npm run build && vsce package --no-dependencies --allow-missing-repository --skip-license -o md-review.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^4.1.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  },
+  "dependencies": {
+    "diff": "^9.0.0",
+    "markdown-it": "^15.0.3",
+    "mermaid": "^12.3.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mdReview.open",
+        "title": "Mở diff dạng preview",
+        "category": "MD Review",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "mdReview.pickBaseline",
+        "title": "Đổi mốc so sánh…",
+        "category": "MD Review",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "mdReview.refresh",
+        "title": "Làm mới",
+        "category": "MD Review",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mdReview.nextFile",
+        "title": "File thay đổi tiếp theo",
+        "category": "MD Review",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "mdReview.prevFile",
+        "title": "File thay đổi trước",
+        "category": "MD Review",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "mdReview.toggleViewed",
+        "title": "Đánh dấu / bỏ đánh dấu đã xem file đang review",
+        "category": "MD Review"
+      },
+      {
+        "command": "mdReview.installClaudeHook",
+        "title": "Cài hook Claude Code (theo dõi lượt Claude sửa)",
+        "category": "MD Review"
+      },
+      {
+        "command": "mdReview.openFile",
+        "title": "Mở",
+        "category": "MD Review"
+      },
+      {
+        "command": "mdReview.openCommit",
+        "title": "Xem commit",
+        "category": "MD Review"
+      },
+      {
+        "command": "mdReview.viewAsTree",
+        "title": "Xem dạng cây thư mục",
+        "category": "MD Review",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "mdReview.viewAsList",
+        "title": "Xem dạng danh sách",
+        "category": "MD Review",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "mdReview.scrollToSection",
+        "title": "Tới mục",
+        "category": "MD Review"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mdReview",
+          "title": "MD Review",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "mdReview": [
+        {
+          "id": "mdReview.changes",
+          "name": "File thay đổi"
+        },
+        {
+          "id": "mdReview.outline",
+          "name": "Mục lục thay đổi"
+        },
+        {
+          "id": "mdReview.history",
+          "name": "Lịch sử file"
+        }
+      ]
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mdReview.open",
+          "group": "navigation",
+          "when": "resourceLangId == markdown || activeCustomEditorId == vscode.markdown.preview.editor || activeWebviewPanelId == markdown.preview"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "mdReview.open",
+          "group": "navigation@99",
+          "when": "resourceExtname =~ /\\.(md|markdown)$/"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "mdReview.open",
+          "group": "inline",
+          "when": "resourceExtname =~ /\\.(md|markdown)$/"
+        },
+        {
+          "command": "mdReview.open",
+          "group": "navigation",
+          "when": "resourceExtname =~ /\\.(md|markdown)$/"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "mdReview.prevFile",
+          "group": "navigation@1",
+          "when": "view == mdReview.changes"
+        },
+        {
+          "command": "mdReview.nextFile",
+          "group": "navigation@2",
+          "when": "view == mdReview.changes"
+        },
+        {
+          "command": "mdReview.pickBaseline",
+          "group": "navigation@3",
+          "when": "view == mdReview.changes"
+        },
+        {
+          "command": "mdReview.refresh",
+          "group": "navigation@4",
+          "when": "view == mdReview.changes"
+        },
+        {
+          "command": "mdReview.viewAsTree",
+          "group": "navigation@5",
+          "when": "view == mdReview.changes && !mdReview.treeMode"
+        },
+        {
+          "command": "mdReview.viewAsList",
+          "group": "navigation@5",
+          "when": "view == mdReview.changes && mdReview.treeMode"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mdReview.openFile",
+          "when": "false"
+        },
+        {
+          "command": "mdReview.openCommit",
+          "when": "false"
+        },
+        {
+          "command": "mdReview.scrollToSection",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "mdReview.open",
+        "key": "alt+shift+d"
+      }
+    ],
+    "configuration": {
+      "title": "MD Review",
+      "properties": {
+        "mdReview.defaultBaseline": {
+          "type": "string",
+          "enum": [
+            "head",
+            "reviewed",
+            "claude",
+            "mergeBase",
+            "index"
+          ],
+          "default": "head",
+          "description": "Mốc so sánh mặc định (đổi nhanh bằng nút ở thanh bên)."
+        },
+        "mdReview.mrBaseBranch": {
+          "type": "string",
+          "default": "docs/detail_design",
+          "description": "Branch đích của MR, dùng cho mốc \"Như trên MR\"."
+        }
+      }
+    }
+  }
+}
